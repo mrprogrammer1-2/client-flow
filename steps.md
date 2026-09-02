@@ -4,20 +4,20 @@
 - [x] Set up TypeScript
 - [x] Set up Tailwind CSS
 - [x] Initialize Git
-- [ ] Create GitHub repository
-- [ ] Create basic project folder structure
+- [x] Create GitHub repository
+- [x] Create basic project folder structure
 
 # Phase 2 — Authentication
 
 > Tool: Kinde
 
-- [ ] Create Kinde application
-- [ ] Install and configure Kinde
-- [ ] Create Sign Up flow
-- [ ] Create Login flow
-- [ ] Implement Logout
+- [x] Create Kinde application
+- [x] Install and configure Kinde
+- [x] Create Sign Up flow
+- [x] Create Login flow
+- [x] Implement Logout
 - [ ] Protect authenticated routes
-- [ ] Create basic user profile
+- [x] Create basic user profile
 
 # Phase 3 — Database
 
