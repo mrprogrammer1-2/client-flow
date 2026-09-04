@@ -1,11 +1,15 @@
 import { createHash, randomBytes, randomUUID } from "crypto";
-import { eq } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 
-import { db, sql } from "@/db";
+import { db } from "@/db";
 import {
+  clientPortalAccess,
   clients,
   onboardingTemplateSteps,
   onboardingTemplates,
+  projectOnboardingSteps,
+  projectOnboardings,
+  projects,
 } from "@/db/schema";
 
 type CreateProjectWithOnboardingInput = {
@@ -70,72 +74,58 @@ export async function createProjectWithOnboarding(
 
   const description = input.description?.trim() || null;
 
-  // 4. All database writes succeed together or fail together.
-  await sql.transaction([
-    sql`
-      INSERT INTO projects (id, client_id, name, description)
-      VALUES (
-        ${projectId},
-        ${input.clientId},
-        ${input.name},
-        ${description}
-      )
-    `,
-
-    sql`
-      INSERT INTO project_onboardings (id, project_id, template_id)
-      VALUES (
-        ${onboardingId},
-        ${projectId},
-        ${input.templateId}
-      )
-    `,
-
-    // Copy template steps into this project's own onboarding steps.
-    sql`
-      INSERT INTO project_onboarding_steps (
-        id,
-        project_onboarding_id,
-        template_step_id,
-        title,
-        description,
-        type,
-        position,
-        required
-      )
-      SELECT
-        gen_random_uuid(),
-        ${onboardingId},
-        id,
-        title,
-        description,
-        type,
-        position,
-        required
-      FROM onboarding_template_steps
-      WHERE template_id = ${input.templateId}
-      ORDER BY position
-    `,
-
-    sql`
-      INSERT INTO client_portal_access (
-        id,
-        project_onboarding_id,
-        token_hash
-      )
-      VALUES (
-        ${randomUUID()},
-        ${onboardingId},
-        ${tokenHash}
-      )
-    `,
-  ]);
-
   const appUrl = process.env.APP_URL;
 
   if (!appUrl) {
     throw new Error("APP_URL is missing.");
   }
+
+  // 4. All database writes succeed together or fail together.
+  await db.transaction(async (tx) => {
+    await tx.insert(projects).values({
+      id: projectId,
+      clientId: input.clientId,
+      name: input.name,
+      description: description,
+    });
+
+    await tx.insert(projectOnboardings).values({
+      id: onboardingId,
+      projectId,
+      templateId: input.templateId,
+    });
+
+    const templateSteps = await tx
+      .select({
+        id: onboardingTemplateSteps.id,
+        title: onboardingTemplateSteps.title,
+        description: onboardingTemplateSteps.description,
+        type: onboardingTemplateSteps.type,
+        position: onboardingTemplateSteps.position,
+        required: onboardingTemplateSteps.required,
+      })
+      .from(onboardingTemplateSteps)
+      .where(eq(onboardingTemplateSteps.templateId, input.templateId))
+      .orderBy(asc(onboardingTemplateSteps.position));
+
+    await tx.insert(projectOnboardingSteps).values(
+      templateSteps.map((step) => ({
+        templateStepId: step.id,
+        projectOnboardingId: onboardingId,
+        title: step.title,
+        description: step.description,
+        type: step.type,
+        position: step.position,
+        required: step.required,
+      })),
+    );
+
+    await tx.insert(clientPortalAccess).values({
+      id: randomUUID(),
+      projectOnboardingId: onboardingId,
+      tokenHash,
+    });
+  });
 
   return {
     projectId,

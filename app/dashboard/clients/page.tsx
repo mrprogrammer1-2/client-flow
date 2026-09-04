@@ -1,32 +1,11 @@
-import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { desc, eq } from "drizzle-orm";
-import { redirect } from "next/navigation";
-
 import { db } from "@/db";
 import { clients } from "@/db/schema";
-import { ensureUserAndAgency } from "@/lib/services/ensure-user";
-
 import { createClientAction } from "@/app/dashboard/clients/actions";
+import { requireCurrentUser } from "@/lib/services/current-user";
 
 export default async function ClientsPage() {
-  // 1. Identify the authenticated person.
-  const { getUser } = getKindeServerSession();
-  const kindeUser = await getUser();
-
-  if (!kindeUser) {
-    redirect("/");
-  }
-
-  // 2. Get that person's ClientFlow user record and agency.
-  const user = await ensureUserAndAgency({
-    id: kindeUser.id,
-    email: kindeUser.email,
-    given_name: kindeUser.given_name,
-  });
-
-  if (!user) {
-    throw new Error("Could not find the current user.");
-  }
+  const user = await requireCurrentUser();
 
   // 3. Load only this agency's clients.
   const agencyClients = await db

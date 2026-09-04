@@ -1,12 +1,10 @@
 "use server";
 
-import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { and, eq, max } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-
 import { db } from "@/db";
 import { onboardingTemplateSteps, onboardingTemplates } from "@/db/schema";
-import { ensureUserAndAgency } from "@/lib/services/ensure-user";
+import { requireCurrentUser } from "@/lib/services/current-user";
 
 const allowedStepTypes = ["text", "textarea", "file", "url"] as const;
 
@@ -25,22 +23,7 @@ export async function createTemplateStepAction(formData: FormData) {
     throw new Error("Invalid step type.");
   }
 
-  const { getUser } = getKindeServerSession();
-  const kindeUser = await getUser();
-
-  if (!kindeUser) {
-    throw new Error("You must be logged in.");
-  }
-
-  const user = await ensureUserAndAgency({
-    id: kindeUser.id,
-    email: kindeUser.email,
-    given_name: kindeUser.given_name,
-  });
-
-  if (!user) {
-    throw new Error("Could not find the current user.");
-  }
+  const user = await requireCurrentUser();
 
   // Confirm this template belongs to the logged-in agency.
   const [template] = await db
