@@ -4,15 +4,26 @@ import { submitClientResponse } from "@/lib/services/submit-client-response";
 import { revalidatePath } from "next/cache";
 
 export async function submitClientResponseAction(formData: FormData) {
-  const token = formData.get("token") as string;
-  const value = formData.get("value") as string;
-  const stepId = formData.get("stepId") as string;
+  const token = String(formData.get("token") ?? "");
+  const stepId = String(formData.get("stepId") ?? "");
 
-  if (!token || !value || !stepId) {
-    throw new Error("Missing required fields");
+  const valueEntry = formData.get("value");
+  const fileEntry = formData.get("file");
+
+  const value = typeof valueEntry === "string" ? valueEntry : undefined;
+
+  const file = fileEntry instanceof File ? fileEntry : undefined;
+
+  if (!token || !stepId) {
+    throw new Error("Missing required fields.");
   }
 
-  await submitClientResponse({ token, value, stepId });
+  await submitClientResponse({
+    token,
+    stepId,
+    value,
+    file,
+  });
 
   revalidatePath(`/client-portal/${token}`);
 }
