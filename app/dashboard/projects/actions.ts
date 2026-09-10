@@ -17,13 +17,18 @@ export async function createProjectAction(formData: FormData) {
 
   const user = await requireAgencyAdmin();
 
-  await createProjectWithOnboarding({
+  const projectOnboarding = await createProjectWithOnboarding({
     agencyId: user.agencyId,
     clientId,
     templateId,
     name,
     description: description || undefined,
   });
+
+  console.log(
+    "Created project with onboarding portal:",
+    projectOnboarding.portalUrl,
+  );
 
   redirect("/dashboard/projects");
 }

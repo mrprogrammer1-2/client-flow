@@ -51,17 +51,6 @@ export async function createProjectWithOnboarding(
     throw new Error("Template was not found for this agency.");
   }
 
-  // 3. Do not create an onboarding from an empty template.
-  const [firstTemplateStep] = await db
-    .select({ id: onboardingTemplateSteps.id })
-    .from(onboardingTemplateSteps)
-    .where(eq(onboardingTemplateSteps.templateId, input.templateId))
-    .limit(1);
-
-  if (!firstTemplateStep) {
-    throw new Error("This template has no steps.");
-  }
-
   // IDs are created before the transaction so all inserts can reference them.
   const projectId = randomUUID();
   const onboardingId = randomUUID();
@@ -107,6 +96,10 @@ export async function createProjectWithOnboarding(
       .from(onboardingTemplateSteps)
       .where(eq(onboardingTemplateSteps.templateId, input.templateId))
       .orderBy(asc(onboardingTemplateSteps.position));
+
+    if (templateSteps.length === 0) {
+      throw new Error("This template has no steps.");
+    }
 
     await tx.insert(projectOnboardingSteps).values(
       templateSteps.map((step) => ({

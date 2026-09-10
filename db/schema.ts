@@ -331,6 +331,8 @@ export const clientPortalAccess = pgTable("client_portal_access", {
     .notNull(),
 });
 
+// Relations
+
 export const agenciesRelations = relations(agencies, ({ many }) => ({
   users: many(users),
   clients: many(clients),
