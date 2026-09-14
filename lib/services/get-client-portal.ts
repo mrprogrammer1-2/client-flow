@@ -30,7 +30,7 @@ export async function getClientPortal(token: string) {
     return null;
   }
 
-  const info = await db
+  const rows = await db
     .select({
       projectName: projects.name,
       clientName: clients.name,
@@ -54,13 +54,13 @@ export async function getClientPortal(token: string) {
     .where(eq(projectOnboardings.id, portalAccess.projectOnboardingId))
     .orderBy(asc(projectOnboardingSteps.position));
 
-  if (!info.length) {
+  if (!rows.length) {
     return null;
   }
 
-  const projectInfo = info[0];
+  const projectRow = rows[0];
 
-  const steps = info.map((row) => ({
+  const steps = rows.map((row) => ({
     id: row.stepId,
     title: row.stepTitle,
     status: row.stepStatus,
@@ -78,15 +78,14 @@ export async function getClientPortal(token: string) {
   const progress =
     totalSteps === 0 ? 0 : Math.round((completedSteps / totalSteps) * 100);
 
-  console.log("Token hash:", tokenHash);
   return {
     project: {
-      name: projectInfo.projectName,
-      description: projectInfo.projectDescription,
-      clientName: projectInfo.clientName,
+      name: projectRow.projectName,
+      description: projectRow.projectDescription,
+      clientName: projectRow.clientName,
     },
     onboarding: {
-      status: projectInfo.onboardingStatus,
+      status: projectRow.onboardingStatus,
       steps,
       progress,
     },

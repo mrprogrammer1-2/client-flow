@@ -5,7 +5,16 @@ import { requireAgencyAdmin } from "@/lib/services/check-agency-admin";
 import { redirect } from "next/navigation";
 import { completeOnboardingStep } from "@/lib/services/complete-onboarding-step";
 
-export async function createProjectAction(formData: FormData) {
+export type CreateProjectState = {
+  projectId: string | null;
+  onboardingId: string | null;
+  portalUrl: string | null;
+};
+
+export async function createProjectAction(
+  _prevState: CreateProjectState,
+  formData: FormData,
+) {
   const clientId = String(formData.get("clientId") ?? "");
   const templateId = String(formData.get("templateId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
@@ -17,7 +26,7 @@ export async function createProjectAction(formData: FormData) {
 
   const user = await requireAgencyAdmin();
 
-  const projectOnboarding = await createProjectWithOnboarding({
+  const result = await createProjectWithOnboarding({
     agencyId: user.agencyId,
     clientId,
     templateId,
@@ -25,12 +34,7 @@ export async function createProjectAction(formData: FormData) {
     description: description || undefined,
   });
 
-  console.log(
-    "Created project with onboarding portal:",
-    projectOnboarding.portalUrl,
-  );
-
-  redirect("/dashboard/projects");
+  return result;
 }
 
 export async function markStepCompleteAction(formData: FormData) {

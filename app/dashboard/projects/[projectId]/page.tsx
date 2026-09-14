@@ -2,6 +2,7 @@ import { db } from "@/db/index";
 import {
   clients,
   projectOnboardings,
+  projectOnboardingStepResponses,
   projectOnboardingSteps,
   projects,
 } from "@/db/schema";
@@ -29,6 +30,9 @@ export default async function ProjectDetailsPage({
       stepTitle: projectOnboardingSteps.title,
       stepStatus: projectOnboardingSteps.status,
       stepPosition: projectOnboardingSteps.position,
+      responseValue: projectOnboardingStepResponses.value,
+      responseFileUrl: projectOnboardingStepResponses.fileUrl,
+      responseFileName: projectOnboardingStepResponses.fileName,
     })
     .from(projects)
     .innerJoin(clients, eq(projects.clientId, clients.id))
@@ -39,6 +43,13 @@ export default async function ProjectDetailsPage({
     .innerJoin(
       projectOnboardingSteps,
       eq(projectOnboardingSteps.projectOnboardingId, projectOnboardings.id),
+    )
+    .leftJoin(
+      projectOnboardingStepResponses,
+      eq(
+        projectOnboardingStepResponses.projectOnboardingStepId,
+        projectOnboardingSteps.id,
+      ),
     )
     .where(and(eq(projects.id, projectId), eq(clients.agencyId, user.agencyId)))
     .orderBy(asc(projectOnboardingSteps.position));
@@ -57,6 +68,11 @@ export default async function ProjectDetailsPage({
     title: row.stepTitle,
     status: row.stepStatus,
     position: row.stepPosition,
+    response: {
+      value: row.responseValue,
+      fileUrl: row.responseFileUrl,
+      fileName: row.responseFileName,
+    },
   }));
 
   // calculating progress
@@ -91,11 +107,28 @@ export default async function ProjectDetailsPage({
       <div className="flex flex-col gap-4 mt-3">
         {steps.map((step) => (
           <div
-            key={step.position}
+            key={step.id}
             className={`${step.status === "completed" ? "bg-green-100" : "bg-gray-100"} p-2`}
           >
             <h3>{step.title}</h3>
             <p>Status: {step.status}</p>
+            {(step.response.value || step.response.fileUrl) && (
+              <div>
+                <p>Response:</p>
+
+                {step.response.value && <p>{step.response.value}</p>}
+
+                {step.response.fileUrl && (
+                  <a
+                    href={step.response.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {step.response.fileName || "View file"}
+                  </a>
+                )}
+              </div>
+            )}
 
             {step.status !== "completed" && (
               <form action={markStepCompleteAction}>

@@ -1,7 +1,6 @@
 "use server";
 
 import { db } from "@/db";
-import { requireAgencyAdmin } from "./check-agency-admin";
 import {
   clients,
   projectOnboardings,
@@ -15,32 +14,7 @@ type Props = {
   agencyId: string;
 };
 
-export async function updateOnboardingStep({ stepId, agencyId }: Props) {
-  if (!stepId || !agencyId) {
-    throw new Error("stepId and agencyId are required");
-  }
-
-  const user = await requireAgencyAdmin();
-
-  if (user.agencyId !== agencyId) {
-    throw new Error(
-      "Access denied. You do not have permission to perform this action.",
-    );
-  }
-
-  await db
-    .update(projectOnboardingSteps)
-    .set({ status: "completed" })
-    .where(eq(projectOnboardingSteps.id, stepId))
-    .returning();
-}
-
-type Props2 = {
-  stepId: string;
-  agencyId: string;
-};
-
-export async function completeOnboardingStep({ stepId, agencyId }: Props2) {
+export async function completeOnboardingStep({ stepId, agencyId }: Props) {
   return await db.transaction(async (tx) => {
     // 1. Find the step and verify that it belongs to this agency
     const stepData = await tx

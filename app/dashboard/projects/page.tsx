@@ -2,9 +2,8 @@ import { db } from "@/db";
 import { clients, onboardingTemplates, projects } from "@/db/schema";
 import { requireCurrentUser } from "@/lib/services/current-user";
 import { eq, desc } from "drizzle-orm";
-import { createProjectAction } from "./actions";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import CreateProjectForm from "./create-project-form";
 
 export default async function ProjectsPage() {
   const user = await requireCurrentUser();
@@ -38,62 +37,39 @@ export default async function ProjectsPage() {
     .from(onboardingTemplates)
     .where(eq(onboardingTemplates.agencyId, user.agencyId));
 
+  const statusColors: Record<string, string> = {
+    active: "bg-green-100 text-green-700",
+    inactive: "bg-gray-100 text-gray-600",
+    completed: "bg-blue-100 text-blue-700",
+  };
+
   return (
-    <div className="p-4 flex flex-col gap-4 items-center">
-      <form
-        action={createProjectAction}
-        className="flex flex-col gap-4 w-full max-w-md border border-gray-300 p-4 rounded"
-      >
-        <input
-          name="name"
-          placeholder="Project name"
-          required
-          className=" border border-gray-200 p-2 rounded bg-gray-100"
-        />
-        <textarea
-          name="description"
-          placeholder="Project description"
-          className="border border-gray-200 p-2 rounded bg-gray-100"
-        />
-        <select
-          name="clientId"
-          required
-          className="border border-gray-200 p-2 rounded bg-gray-100"
-        >
-          {agencyClients.map((client) => (
-            <option key={client.id} value={client.id}>
-              {client.name}
-            </option>
+    <div className="min-h-screen bg-gray-50">
+      <CreateProjectForm clients={agencyClients} templates={agencyTemplates} />
+
+      <div className="max-w-lg mx-auto px-4 pb-16">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Projects</h2>
+        <div className="flex flex-col gap-3">
+          {agencyProjects.map((project) => (
+            <Link
+              href={`/dashboard/projects/${project.id}`}
+              key={project.id}
+              className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-gray-300 transition group"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="font-medium text-gray-900 group-hover:text-blue-600 transition">{project.name}</h3>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${statusColors[project.status ?? ""] ?? "bg-gray-100 text-gray-600"}`}>
+                  {project.status}
+                </span>
+              </div>
+              {project.description && (
+                <p className="text-sm text-gray-500 mt-1 line-clamp-2">{project.description}</p>
+              )}
+              <p className="text-xs text-gray-400 mt-2">Client: {project.clientName}</p>
+            </Link>
           ))}
-        </select>
-        <select
-          name="templateId"
-          required
-          className="border border-gray-200 p-2 rounded bg-gray-100"
-        >
-          {agencyTemplates.map((template) => (
-            <option key={template.id} value={template.id}>
-              {template.name}
-            </option>
-          ))}
-        </select>
-        <Button type="submit" className={"cursor-pointer"}>
-          Create Project
-        </Button>
-      </form>
-      <h1>Projects</h1>
-      {agencyProjects.map((project) => (
-        <Link
-          href={`/dashboard/projects/${project.id}`}
-          key={project.id}
-          className="cursor-pointer bg-pink-300 p-4 rounded-2xl w-full max-w-3xl flex flex-col justify-center"
-        >
-          <h2>name:{project.name}</h2>
-          <p>description: {project.description}</p>
-          <p>Status: {project.status}</p>
-          <p>Client: {project.clientName}</p>
-        </Link>
-      ))}
+        </div>
+      </div>
     </div>
   );
 }
