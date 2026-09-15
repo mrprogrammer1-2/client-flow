@@ -16,48 +16,48 @@
 - [x] Create Sign Up flow
 - [x] Create Login flow
 - [x] Implement Logout
-- [ ] Protect authenticated routes
+- [x] Protect authenticated routes
 - [x] Create basic user profile
 
 # Phase 3 — Database
 
 > Tools: Neon PostgreSQL + Drizzle ORM
 
-- [ ] Create Neon PostgreSQL database
-- [ ] Connect Next.js to Neon
-- [ ] Install and configure Drizzle ORM
-- [ ] Create users table
-- [ ] Create agencies table
-- [ ] Create clients table
-- [ ] Create projects table
-- [ ] Create onboarding_templates table
-- [ ] Create onboarding_steps table
-- [ ] Create client_onboarding_steps table
-- [ ] Define database relationships
-- [ ] Run database migrations
+- [x] Create Neon PostgreSQL database
+- [x] Connect Next.js to Neon
+- [x] Install and configure Drizzle ORM
+- [x] Create users table
+- [x] Create agencies table
+- [x] Create clients table
+- [x] Create projects table
+- [x] Create onboarding_templates table
+- [x] Create onboarding_steps table
+- [x] Create client_onboarding_steps table
+- [x] Define database relationships
+- [x] Run database migrations
 
 # Phase 4 — Agency Dashboard
 
 - [ ] Create dashboard layout
 - [ ] Create sidebar navigation
-- [ ] Create dashboard overview page
+- [x] Create dashboard overview page
 - [ ] Display total clients
 - [ ] Display active clients
 - [ ] Display pending clients
 - [ ] Display completed onboardings
 - [ ] Display onboarding progress
-- [ ] Create Clients page
-- [ ] Create Projects page
-- [ ] Create Templates page
+- [x] Create Clients page
+- [x] Create Projects page
+- [x] Create Templates page
 
 # Phase 5 — Client Management
 
-- [ ] Create "Add Client" form
-- [ ] Add client name
-- [ ] Add client email
-- [ ] Add project name
+- [x] Create "Add Client" form
+- [x] Add client name
+- [x] Add client email
+- [x] Add project name
 - [ ] Add project type
-- [ ] Save client to database
+- [x] Save client to database
 - [ ] Display clients in a table
 - [ ] Create client details page
 - [ ] Edit client information
@@ -67,51 +67,51 @@
 
 # Phase 6 — Onboarding Templates
 
-- [ ] Create onboarding template
-- [ ] Add template name
-- [ ] Add onboarding step
+- [x] Create onboarding template
+- [x] Add template name
+- [x] Add onboarding step
 - [ ] Edit onboarding step
 - [ ] Delete onboarding step
 - [ ] Reorder onboarding steps
-- [ ] Define step types
-- [ ] Create template details page
-- [ ] Display template steps
-- [ ] Save templates to database
+- [x] Define step types
+- [x] Create template details page
+- [x] Display template steps
+- [x] Save templates to database
 
 **Step Types**
 
-- [ ] Text / Information
+- [x] Text / Information
 - [ ] Questionnaire
-- [ ] File Upload
+- [x] File Upload
 - [ ] Task
 - [ ] Meeting / Appointment
 
 # Phase 7 — Client Onboarding
 
-- [ ] Select onboarding template for a client
-- [ ] Start client onboarding
-- [ ] Create client-specific onboarding steps
-- [ ] Display onboarding progress
-- [ ] Mark steps as completed
-- [ ] Track pending steps
-- [ ] Calculate completion percentage
-- [ ] Display onboarding status
-- [ ] Mark onboarding as completed
+- [x] Select onboarding template for a client
+- [x] Start client onboarding
+- [x] Create client-specific onboarding steps
+- [x] Display onboarding progress
+- [x] Mark steps as completed
+- [x] Track pending steps
+- [x] Calculate completion percentage
+- [x] Display onboarding status
+- [x] Mark onboarding as completed
 
 # Phase 8 — Client Portal
 
-- [ ] Create client portal
-- [ ] Create client portal layout
-- [ ] Display client information
-- [ ] Display project information
-- [ ] Display onboarding progress
-- [ ] Display completed steps
-- [ ] Display pending steps
-- [ ] Open onboarding step
+- [x] Create client portal
+- [x] Create client portal layout
+- [x] Display client information
+- [x] Display project information
+- [x] Display onboarding progress
+- [x] Display completed steps
+- [x] Display pending steps
+- [x] Open onboarding step
 - [ ] Submit questionnaire
 - [ ] Complete tasks
-- [ ] Upload required files
-- [ ] Show onboarding completion state
+- [x] Upload required files
+- [x] Show onboarding completion state
 
 # Phase 9 — File Uploads
 
@@ -119,10 +119,10 @@
 
 - [ ] Create Cloudinary account
 - [ ] Configure Cloudinary
-- [ ] Implement file upload
-- [ ] Upload client files
-- [ ] Store file URLs in database
-- [ ] Display uploaded files
+- [x] Implement file upload
+- [x] Upload client files
+- [x] Store file URLs in database
+- [x] Display uploaded files
 - [ ] Allow file deletion
 - [ ] Validate file type
 - [ ] Validate file size
@@ -209,15 +209,15 @@
 
 > The first version is complete when these features work:
 
-- [ ] User can sign up / log in
-- [ ] Agency can create clients
-- [ ] Agency can create onboarding templates
-- [ ] Agency can assign a template to a client
-- [ ] Client can access their portal
-- [ ] Client can complete onboarding steps
-- [ ] Client can upload files
-- [ ] Agency can see client progress
-- [ ] Agency can see completed and pending steps
+- [x] User can sign up / log in
+- [x] Agency can create clients
+- [x] Agency can create onboarding templates
+- [x] Agency can assign a template to a client
+- [x] Client can access their portal
+- [x] Client can complete onboarding steps
+- [x] Client can upload files
+- [x] Agency can see client progress
+- [x] Agency can see completed and pending steps
 - [ ] Application is deployed online
 
 # Later Features
