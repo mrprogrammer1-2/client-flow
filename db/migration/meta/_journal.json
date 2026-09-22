@@ -64,6 +64,20 @@
       "when": 1788174398806,
       "tag": "0008_demonic_cerise",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789882617730,
+      "tag": "0009_cuddly_starhawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789889384622,
+      "tag": "0010_chubby_shinobi_shaw",
+      "breakpoints": true
     }
   ]
 }

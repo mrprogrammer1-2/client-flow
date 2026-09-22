@@ -1,9 +1,10 @@
 import { db } from "@/db";
 import { clients, onboardingTemplates, projects } from "@/db/schema";
 import { requireCurrentUser } from "@/lib/services/current-user";
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 import Link from "next/link";
 import CreateProjectForm from "./create-project-form";
+import DeleteProjectButton from "./delete-project-button";
 
 export default async function ProjectsPage() {
   const user = await requireCurrentUser();
@@ -18,7 +19,10 @@ export default async function ProjectsPage() {
     })
     .from(projects)
     .innerJoin(clients, eq(projects.clientId, clients.id))
-    .where(eq(clients.agencyId, user.agencyId));
+    .where(
+      and(eq(clients.agencyId, user.agencyId), eq(projects.status, "active")),
+    )
+    .orderBy(desc(projects.createdAt));
 
   const agencyClients = await db
     .select({
@@ -51,22 +55,35 @@ export default async function ProjectsPage() {
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Projects</h2>
         <div className="flex flex-col gap-3">
           {agencyProjects.map((project) => (
-            <Link
-              href={`/dashboard/projects/${project.id}`}
+            <div
               key={project.id}
               className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-gray-300 transition group"
             >
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-medium text-gray-900 group-hover:text-blue-600 transition">{project.name}</h3>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${statusColors[project.status ?? ""] ?? "bg-gray-100 text-gray-600"}`}>
-                  {project.status}
-                </span>
+                <Link
+                  href={`/dashboard/projects/${project.id}`}
+                  className="min-w-0 flex-1"
+                >
+                  <h3 className="font-medium text-gray-900 group-hover:text-blue-600 transition">
+                    {project.name}
+                  </h3>
+                  <span
+                    className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${statusColors[project.status ?? ""] ?? "bg-gray-100 text-gray-600"}`}
+                  >
+                    {project.status}
+                  </span>
+                </Link>
+                <DeleteProjectButton projectId={project.id} />
               </div>
               {project.description && (
-                <p className="text-sm text-gray-500 mt-1 line-clamp-2">{project.description}</p>
+                <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+                  {project.description}
+                </p>
               )}
-              <p className="text-xs text-gray-400 mt-2">Client: {project.clientName}</p>
-            </Link>
+              <p className="text-xs text-gray-400 mt-2">
+                Client: {project.clientName}
+              </p>
+            </div>
           ))}
         </div>
       </div>

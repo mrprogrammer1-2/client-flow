@@ -10,6 +10,20 @@ export async function submitClientResponseAction(formData: FormData) {
   const valueEntry = formData.get("value");
   const fileEntry = formData.get("file");
 
+  const answers: { questionId: string; answer: string }[] = [];
+
+  for (const [name, value] of formData.entries()) {
+    if (name.startsWith("question_")) {
+      const questionId = name.replace("question_", "");
+      const answer = String(value);
+
+      answers.push({
+        questionId,
+        answer,
+      });
+    }
+  }
+
   const value = typeof valueEntry === "string" ? valueEntry : undefined;
 
   const file = fileEntry instanceof File ? fileEntry : undefined;
@@ -23,6 +37,7 @@ export async function submitClientResponseAction(formData: FormData) {
     stepId,
     value,
     file,
+    answers,
   });
 
   revalidatePath(`/client-portal/${token}`);

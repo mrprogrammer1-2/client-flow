@@ -3,11 +3,12 @@ import {
   clientPortalAccess,
   clients,
   projectOnboardings,
+  projectOnboardingQuestions,
   projectOnboardingSteps,
   projects,
 } from "@/db/schema";
 import { createHash } from "crypto";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, inArray } from "drizzle-orm";
 
 export async function getClientPortal(token: string) {
   const tokenHash = createHash("sha256").update(token).digest("hex");
@@ -60,6 +61,25 @@ export async function getClientPortal(token: string) {
 
   const projectRow = rows[0];
 
+  const questions =
+    rows.length > 0
+      ? await db
+          .select({
+            id: projectOnboardingQuestions.id,
+            stepId: projectOnboardingQuestions.projectOnboardingStepId,
+            question: projectOnboardingQuestions.question,
+            position: projectOnboardingQuestions.position,
+          })
+          .from(projectOnboardingQuestions)
+          .where(
+            inArray(
+              projectOnboardingQuestions.projectOnboardingStepId,
+              rows.map((row) => row.stepId),
+            ),
+          )
+          .orderBy(asc(projectOnboardingQuestions.position))
+      : [];
+
   const steps = rows.map((row) => ({
     id: row.stepId,
     title: row.stepTitle,
@@ -68,6 +88,7 @@ export async function getClientPortal(token: string) {
     type: row.stepType,
     description: row.stepDescription,
     required: row.stepRequired,
+    questions: questions.filter((question) => question.stepId === row.stepId),
   }));
 
   const totalSteps = steps.length;

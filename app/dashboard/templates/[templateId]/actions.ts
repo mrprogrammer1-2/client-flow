@@ -3,10 +3,20 @@
 import { and, eq, max } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { onboardingTemplateSteps, onboardingTemplates } from "@/db/schema";
+import {
+  onboardingTemplateQuestions,
+  onboardingTemplateSteps,
+  onboardingTemplates,
+} from "@/db/schema";
 import { requireCurrentUser } from "@/lib/services/current-user";
 
-const allowedStepTypes = ["text", "textarea", "file", "url"] as const;
+const allowedStepTypes = [
+  "text",
+  "textarea",
+  "file",
+  "url",
+  "questionnaire",
+] as const;
 
 export async function createTemplateStepAction(formData: FormData) {
   const templateId = String(formData.get("templateId") ?? "");
@@ -61,4 +71,59 @@ export async function createTemplateStepAction(formData: FormData) {
   });
 
   revalidatePath(`/dashboard/templates/${templateId}`);
+}
+
+export async function createTemplateQuestionAction(formData: FormData) {
+  const stepId = String(formData.get("stepId") ?? "");
+  const question = String(formData.get("question") ?? "").trim();
+
+  if (!stepId || !question) {
+    throw new Error("Step ID and question are required.");
+  }
+
+  const user = await requireCurrentUser();
+
+  const [step] = await db
+    .select({
+      id: onboardingTemplateSteps.id,
+      stepType: onboardingTemplateSteps.type,
+      templateId: onboardingTemplateSteps.templateId,
+    })
+    .from(onboardingTemplateSteps)
+    .innerJoin(
+      onboardingTemplates,
+      eq(onboardingTemplates.id, onboardingTemplateSteps.templateId),
+    )
+    .where(
+      and(
+        eq(onboardingTemplateSteps.id, stepId),
+        eq(onboardingTemplates.agencyId, user.agencyId),
+      ),
+    )
+    .limit(1);
+
+  if (!step) {
+    throw new Error("Step was not found for this agency.");
+  }
+
+  if (step.stepType !== "questionnaire") {
+    throw new Error("This step type does not support questions.");
+  }
+
+  const [lastQuestion] = await db
+    .select({
+      maxPosition: max(onboardingTemplateQuestions.position),
+    })
+    .from(onboardingTemplateQuestions)
+    .where(eq(onboardingTemplateQuestions.stepId, stepId));
+
+  const position = Number(lastQuestion?.maxPosition ?? 0) + 1;
+
+  await db.insert(onboardingTemplateQuestions).values({
+    stepId,
+    question,
+    position,
+  });
+
+  revalidatePath(`/dashboard/templates/${step.templateId}`);
 }

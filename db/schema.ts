@@ -130,6 +130,7 @@ export const onboardingStepTypeEnum = pgEnum("onboarding_step_type", [
   "textarea",
   "file",
   "url",
+  "questionnaire",
 ]);
 
 export const onboardingTemplateSteps = pgTable(
@@ -171,6 +172,36 @@ export const onboardingTemplateSteps = pgTable(
   ],
 );
 
+export const onboardingTemplateQuestions = pgTable(
+  "onboarding_template_questions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    stepId: uuid("step_id")
+      .notNull()
+      .references(() => onboardingTemplateSteps.id, { onDelete: "cascade" }),
+    question: text("question").notNull(),
+    position: integer("position").notNull(),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("template_question_position_unique").on(
+      table.stepId,
+      table.position,
+    ),
+  ],
+);
+
 export const projectOnboardingStatusEnum = pgEnum("project_onboarding_status", [
   "not_started",
   "in_progress",
@@ -206,6 +237,51 @@ export const projectOnboardings = pgTable("project_onboardings", {
     .defaultNow()
     .$onUpdate(() => new Date()),
 });
+
+export const projectOnboardingQuestions = pgTable(
+  "project_onboarding_questions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    projectOnboardingStepId: uuid("project_onboarding_step_id")
+      .notNull()
+      .references(() => projectOnboardingSteps.id, { onDelete: "cascade" }),
+    question: text("question").notNull(),
+    position: integer("position").notNull(),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("project_step_position_unique").on(
+      table.projectOnboardingStepId,
+      table.position,
+    ),
+  ],
+);
+
+export const projectOnboardingQuestionResponses = pgTable(
+  "project_onboarding_question_responses",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => projectOnboardingQuestions.id, {
+        onDelete: "cascade",
+      }),
+
+    answer: text("answer").notNull(),
+  },
+  (table) => [uniqueIndex("question_response_unique").on(table.questionId)],
+);
 
 export const projectOnboardingStepStatusEnum = pgEnum(
   "project_onboarding_step_status",
@@ -381,7 +457,20 @@ export const onboardingTemplateStepsRelations = relations(
       fields: [onboardingTemplateSteps.templateId],
       references: [onboardingTemplates.id],
     }),
+
     projectOnboardingSteps: many(projectOnboardingSteps),
+
+    questions: many(onboardingTemplateQuestions),
+  }),
+);
+
+export const onboardingTemplateQuestionsRelations = relations(
+  onboardingTemplateQuestions,
+  ({ one }) => ({
+    step: one(onboardingTemplateSteps, {
+      fields: [onboardingTemplateQuestions.stepId],
+      references: [onboardingTemplateSteps.id],
+    }),
   }),
 );
 
@@ -403,7 +492,7 @@ export const projectOnboardingsRelations = relations(
 
 export const projectOnboardingStepsRelations = relations(
   projectOnboardingSteps,
-  ({ one }) => ({
+  ({ one, many }) => ({
     onboarding: one(projectOnboardings, {
       fields: [projectOnboardingSteps.projectOnboardingId],
       references: [projectOnboardings.id],
@@ -413,6 +502,19 @@ export const projectOnboardingStepsRelations = relations(
       references: [onboardingTemplateSteps.id],
     }),
     response: one(projectOnboardingStepResponses),
+    questions: many(projectOnboardingQuestions),
+  }),
+);
+
+export const projectOnboardingQuestionsRelations = relations(
+  projectOnboardingQuestions,
+  ({ one }) => ({
+    step: one(projectOnboardingSteps, {
+      fields: [projectOnboardingQuestions.projectOnboardingStepId],
+      references: [projectOnboardingSteps.id],
+    }),
+
+    response: one(projectOnboardingQuestionResponses),
   }),
 );
 
@@ -422,6 +524,16 @@ export const projectOnboardingStepResponsesRelations = relations(
     projectOnboardingStep: one(projectOnboardingSteps, {
       fields: [projectOnboardingStepResponses.projectOnboardingStepId],
       references: [projectOnboardingSteps.id],
+    }),
+  }),
+);
+
+export const projectOnboardingQuestionResponsesRelations = relations(
+  projectOnboardingQuestionResponses,
+  ({ one }) => ({
+    question: one(projectOnboardingQuestions, {
+      fields: [projectOnboardingQuestionResponses.questionId],
+      references: [projectOnboardingQuestions.id],
     }),
   }),
 );

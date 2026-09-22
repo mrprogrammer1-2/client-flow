@@ -1,12 +1,14 @@
 import { createHash, randomBytes, randomUUID } from "crypto";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   clientPortalAccess,
   clients,
+  onboardingTemplateQuestions,
   onboardingTemplateSteps,
   onboardingTemplates,
+  projectOnboardingQuestions,
   projectOnboardingSteps,
   projectOnboardings,
   projects,
@@ -101,17 +103,59 @@ export async function createProjectWithOnboarding(
       throw new Error("This template has no steps.");
     }
 
-    await tx.insert(projectOnboardingSteps).values(
-      templateSteps.map((step) => ({
-        templateStepId: step.id,
-        projectOnboardingId: onboardingId,
-        title: step.title,
-        description: step.description,
-        type: step.type,
-        position: step.position,
-        required: step.required,
-      })),
-    );
+    const projectSteps = await tx
+      .insert(projectOnboardingSteps)
+      .values(
+        templateSteps.map((step) => ({
+          templateStepId: step.id,
+          projectOnboardingId: onboardingId,
+          title: step.title,
+          description: step.description,
+          type: step.type,
+          position: step.position,
+          required: step.required,
+        })),
+      )
+      .returning({
+        id: projectOnboardingSteps.id,
+        templateStepId: projectOnboardingSteps.templateStepId,
+      });
+
+    const templateQuestions = await tx
+      .select({
+        id: onboardingTemplateQuestions.id,
+        stepId: onboardingTemplateQuestions.stepId,
+        question: onboardingTemplateQuestions.question,
+        position: onboardingTemplateQuestions.position,
+      })
+      .from(onboardingTemplateQuestions)
+      .where(
+        inArray(
+          onboardingTemplateQuestions.stepId,
+          templateSteps.map((step) => step.id),
+        ),
+      )
+      .orderBy(asc(onboardingTemplateQuestions.position));
+
+    const projectQuestions = templateQuestions.map((templateQuestion) => {
+      const projectStep = projectSteps.find(
+        (projectStep) => projectStep.templateStepId === templateQuestion.stepId,
+      );
+
+      if (!projectStep) {
+        throw new Error("Project step not found for template question.");
+      }
+
+      return {
+        projectOnboardingStepId: projectStep.id,
+        question: templateQuestion.question,
+        position: templateQuestion.position,
+      };
+    });
+
+    if (projectQuestions.length > 0) {
+      await tx.insert(projectOnboardingQuestions).values(projectQuestions);
+    }
 
     await tx.insert(clientPortalAccess).values({
       id: randomUUID(),

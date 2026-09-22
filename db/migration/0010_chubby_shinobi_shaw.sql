@@ -1,0 +1,1 @@
+ALTER TYPE "public"."onboarding_step_type" ADD VALUE 'questionnaire';

@@ -1,13 +1,19 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { db } from "@/db";
-import { onboardingTemplateSteps, onboardingTemplates } from "@/db/schema";
+import {
+  onboardingTemplateQuestions,
+  onboardingTemplateSteps,
+  onboardingTemplates,
+} from "@/db/schema";
 import { ensureUserAndAgency } from "@/lib/services/ensure-user";
-
-import { createTemplateStepAction } from "./actions";
+import {
+  createTemplateQuestionAction,
+  createTemplateStepAction,
+} from "./actions";
 
 type TemplateDetailsPageProps = {
   params: Promise<{
@@ -58,6 +64,17 @@ export default async function TemplateDetailsPage({
     .where(eq(onboardingTemplateSteps.templateId, template.id))
     .orderBy(asc(onboardingTemplateSteps.position));
 
+  const questions = await db
+    .select()
+    .from(onboardingTemplateQuestions)
+    .where(
+      inArray(
+        onboardingTemplateQuestions.stepId,
+        steps.map((step) => step.id),
+      ),
+    )
+    .orderBy(asc(onboardingTemplateQuestions.position));
+
   return (
     <main className="mx-auto max-w-4xl space-y-10 p-8">
       <Link
@@ -107,6 +124,7 @@ export default async function TemplateDetailsPage({
             <option value="textarea">Long text</option>
             <option value="file">File upload</option>
             <option value="url">Website link</option>
+            <option value="questionnaire">Questionnaire</option>
           </select>
 
           <label className="flex items-center gap-2 text-sm">
@@ -130,28 +148,61 @@ export default async function TemplateDetailsPage({
           <p className="mt-4 text-gray-600">This template has no steps yet.</p>
         ) : (
           <ol className="mt-4 space-y-3">
-            {steps.map((step) => (
-              <li key={step.id} className="rounded-lg border p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-semibold">
-                      {step.position}. {step.title}
-                    </p>
-
-                    {step.description ? (
-                      <p className="mt-1 text-sm text-gray-600">
-                        {step.description}
+            {steps.map((step) => {
+              const stepQuestions = questions.filter(
+                (question) => question.stepId === step.id,
+              );
+              return (
+                <li key={step.id} className="rounded-lg border p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-semibold">
+                        {step.position}. {step.title}
                       </p>
-                    ) : null}
-                  </div>
 
-                  <div className="text-right text-sm text-gray-600">
-                    <p>{step.type}</p>
-                    <p>{step.required ? "Required" : "Optional"}</p>
+                      {step.description ? (
+                        <p className="mt-1 text-sm text-gray-600">
+                          {step.description}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="text-right text-sm text-gray-600">
+                      <p>{step.type}</p>
+                      <p>{step.required ? "Required" : "Optional"}</p>
+                    </div>
                   </div>
-                </div>
-              </li>
-            ))}
+                  {step.type === "questionnaire" ? (
+                    <section className="ml-4 mt-4 border-l-2 border-gray-200 pl-4">
+                      <h3 className="text-lg font-medium">Questions</h3>
+                      {stepQuestions.map((question) => (
+                        <p key={question.id}>
+                          {question.position}. {question.question}
+                        </p>
+                      ))}
+                      <form
+                        action={createTemplateQuestionAction}
+                        className="mt-4"
+                      >
+                        <input type="hidden" name="stepId" value={step.id} />
+                        <input
+                          name="question"
+                          required
+                          placeholder="Add a question..."
+                          className="w-full rounded border p-2"
+                        />
+                        <button
+                          type="submit"
+                          className="mt-2 rounded bg-gray-800 px-3 py-1.5 text-white"
+                        >
+                          Add question
+                        </button>
+                      </form>
+                    </section>
+                  ) : null}
+                </li>
+              );
+            })}
           </ol>
         )}
       </section>

@@ -145,6 +145,24 @@ export default async function ClientPortalPage({ params }: Props) {
                       />
                     )}
 
+                    {!isCompleted && step.type === "questionnaire" && (
+                      <div className="space-y-4">
+                        {step.questions.map((question) => (
+                          <div key={question.id}>
+                            <label className="mb-1 block text-sm font-medium text-gray-700">
+                              {question.question}
+                            </label>
+
+                            <input
+                              type="text"
+                              name={`question_${question.id}`}
+                              className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm outline-none focus:border-gray-400"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     {!isCompleted && (
                       <>
                         <input type="hidden" name="stepId" value={step.id} />

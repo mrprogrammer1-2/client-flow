@@ -1,9 +1,11 @@
 import { db } from "@/db";
 import {
   clientPortalAccess,
+  projectOnboardingQuestionResponses,
   projectOnboardings,
   projectOnboardingStepResponses,
   projectOnboardingSteps,
+  projectOnboardingQuestions,
 } from "@/db/schema";
 import { createHash, randomUUID } from "crypto";
 import { eq, and } from "drizzle-orm";
@@ -14,6 +16,10 @@ type SubmitClientResponseInput = {
   stepId: string;
   value?: string;
   file?: File;
+  answers?: {
+    questionId: string;
+    answer: string;
+  }[];
 };
 
 export async function submitClientResponse({
@@ -21,6 +27,7 @@ export async function submitClientResponse({
   value,
   stepId,
   file,
+  answers,
 }: SubmitClientResponseInput) {
   const tokenHash = createHash("sha256").update(token).digest("hex");
 
@@ -79,6 +86,10 @@ export async function submitClientResponse({
     if (!file) {
       throw new Error("File is required.");
     }
+  } else if (step.type === "questionnaire") {
+    if (!answers || answers.length === 0) {
+      throw new Error("At least one answer is required.");
+    }
   } else {
     if (!cleanValue) {
       throw new Error("Response is required.");
@@ -109,13 +120,53 @@ export async function submitClientResponse({
       throw new Error("Step has already been completed.");
     }
 
-    await tx.insert(projectOnboardingStepResponses).values({
-      id: randomUUID(),
-      projectOnboardingStepId: step.id,
-      value: cleanValue,
-      fileUrl: uploadedFile?.url ?? null,
-      fileName: file?.name ?? null,
-    });
+    if (step.type === "questionnaire" && answers) {
+      const questions = await tx
+        .select({
+          id: projectOnboardingQuestions.id,
+        })
+        .from(projectOnboardingQuestions)
+        .where(eq(projectOnboardingQuestions.projectOnboardingStepId, step.id));
+
+      const answeredQuestionIds = answers.map((answer) => answer.questionId);
+
+      const allQuestionsAnswered = questions.every((question) =>
+        answeredQuestionIds.includes(question.id),
+      );
+
+      if (!allQuestionsAnswered) {
+        throw new Error("All questions must be answered.");
+      }
+      for (const answer of answers) {
+        const questionExists = questions.some(
+          (question) => question.id === answer.questionId,
+        );
+
+        if (!questionExists) {
+          throw new Error("Invalid question.");
+        }
+        await tx
+          .insert(projectOnboardingQuestionResponses)
+          .values({
+            questionId: answer.questionId,
+            answer: answer.answer,
+          })
+          .onConflictDoUpdate({
+            target: projectOnboardingQuestionResponses.questionId,
+            set: {
+              answer: answer.answer,
+            },
+          });
+      }
+    } else {
+      await tx.insert(projectOnboardingStepResponses).values({
+        id: randomUUID(),
+        projectOnboardingStepId: step.id,
+        value: cleanValue,
+        fileUrl: uploadedFile?.url ?? null,
+        fileName: file?.name ?? null,
+      });
+    }
 
     await tx
       .update(projectOnboardingSteps)
