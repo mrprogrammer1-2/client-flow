@@ -7,10 +7,10 @@ export async function submitClientResponseAction(formData: FormData) {
   const token = String(formData.get("token") ?? "");
   const stepId = String(formData.get("stepId") ?? "");
 
-  const valueEntry = formData.get("value");
-  const fileEntry = formData.get("file");
-
-  const answers: { questionId: string; answer: string }[] = [];
+  const answers: {
+    questionId: string;
+    answer: string;
+  }[] = [];
 
   for (const [name, value] of formData.entries()) {
     if (name.startsWith("question_")) {
@@ -24,8 +24,10 @@ export async function submitClientResponseAction(formData: FormData) {
     }
   }
 
-  const value = typeof valueEntry === "string" ? valueEntry : undefined;
+  const valueEntry = formData.get("value");
+  const fileEntry = formData.get("file");
 
+  const value = typeof valueEntry === "string" ? valueEntry : undefined;
   const file = fileEntry instanceof File ? fileEntry : undefined;
 
   if (!token || !stepId) {

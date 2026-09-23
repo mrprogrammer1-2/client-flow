@@ -72,7 +72,7 @@ export default async function TemplatesPage() {
                   href={`/dashboard/templates/${template.id}`}
                   className="mt-4 inline-block rounded bg-black px-3 py-2 text-sm text-white"
                 >
-                  Manage steps
+                  Manage template
                 </Link>
               </article>
             ))}

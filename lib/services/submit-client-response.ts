@@ -86,11 +86,7 @@ export async function submitClientResponse({
     if (!file) {
       throw new Error("File is required.");
     }
-  } else if (step.type === "questionnaire") {
-    if (!answers || answers.length === 0) {
-      throw new Error("At least one answer is required.");
-    }
-  } else {
+  } else if (step.type !== "questionnaire") {
     if (!cleanValue) {
       throw new Error("Response is required.");
     }
@@ -120,7 +116,11 @@ export async function submitClientResponse({
       throw new Error("Step has already been completed.");
     }
 
-    if (step.type === "questionnaire" && answers) {
+    if (step.type === "questionnaire") {
+      if (!answers || answers.length === 0) {
+        throw new Error("At least one answer is required.");
+      }
+
       const questions = await tx
         .select({
           id: projectOnboardingQuestions.id,
@@ -128,15 +128,18 @@ export async function submitClientResponse({
         .from(projectOnboardingQuestions)
         .where(eq(projectOnboardingQuestions.projectOnboardingStepId, step.id));
 
-      const answeredQuestionIds = answers.map((answer) => answer.questionId);
+      // Make sure every question has an answer
+      for (const question of questions) {
+        const answer = answers.find(
+          (answer) => answer.questionId === question.id,
+        );
 
-      const allQuestionsAnswered = questions.every((question) =>
-        answeredQuestionIds.includes(question.id),
-      );
-
-      if (!allQuestionsAnswered) {
-        throw new Error("All questions must be answered.");
+        if (!answer || !answer.answer.trim()) {
+          throw new Error("All questionnaire questions must be answered.");
+        }
       }
+
+      // Make sure every submitted answer belongs to this questionnaire
       for (const answer of answers) {
         const questionExists = questions.some(
           (question) => question.id === answer.questionId,
@@ -145,16 +148,17 @@ export async function submitClientResponse({
         if (!questionExists) {
           throw new Error("Invalid question.");
         }
+
         await tx
           .insert(projectOnboardingQuestionResponses)
           .values({
             questionId: answer.questionId,
-            answer: answer.answer,
+            answer: answer.answer.trim(),
           })
           .onConflictDoUpdate({
             target: projectOnboardingQuestionResponses.questionId,
             set: {
-              answer: answer.answer,
+              answer: answer.answer.trim(),
             },
           });
       }

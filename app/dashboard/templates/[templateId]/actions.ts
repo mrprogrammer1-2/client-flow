@@ -9,6 +9,12 @@ import {
   onboardingTemplates,
 } from "@/db/schema";
 import { requireCurrentUser } from "@/lib/services/current-user";
+import { requireAgencyAdmin } from "@/lib/services/check-agency-admin";
+import { updateTemplateStep } from "@/lib/services/update-template-step";
+import { deleteTemplateStep } from "@/lib/services/delete-template-step";
+import { deleteTemplateQuestion } from "@/lib/services/delete-template-question";
+import { updateTemplateQuestion } from "@/lib/services/update-template-question";
+import { reorderTemplateQuestion } from "@/lib/services/reorder-question";
 
 const allowedStepTypes = [
   "text",
@@ -126,4 +132,99 @@ export async function createTemplateQuestionAction(formData: FormData) {
   });
 
   revalidatePath(`/dashboard/templates/${step.templateId}`);
+}
+
+export async function updateTemplateStepAction(formData: FormData) {
+  const stepId = String(formData.get("stepId") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  const required = formData.get("required") === "on";
+
+  if (!stepId || !title) {
+    throw new Error("Missing required fields.");
+  }
+
+  const user = await requireAgencyAdmin();
+
+  const result = await updateTemplateStep({
+    stepId,
+    agencyId: user.agencyId,
+    title,
+    description,
+    required,
+  });
+
+  revalidatePath(`/dashboard/templates/${result.templateId}`);
+}
+
+export async function deleteTemplateStepAction(formData: FormData) {
+  const stepId = String(formData.get("stepId") ?? "");
+
+  if (!stepId) {
+    throw new Error("Missing required fields.");
+  }
+
+  const user = await requireAgencyAdmin();
+
+  const result = await deleteTemplateStep({
+    stepId,
+    agencyId: user.agencyId,
+  });
+
+  revalidatePath(`/dashboard/templates/${result.templateId}`);
+}
+
+export async function deleteTemplateQuestionAction(formData: FormData) {
+  const questionId = String(formData.get("questionId") ?? "");
+
+  if (!questionId) {
+    throw new Error("Missing required fields.");
+  }
+
+  const user = await requireAgencyAdmin();
+
+  const result = await deleteTemplateQuestion({
+    questionId,
+    agencyId: user.agencyId,
+  });
+
+  revalidatePath(`/dashboard/templates/${result.templateId}`);
+}
+
+export async function updateTemplateQuestionAction(formData: FormData) {
+  const questionId = String(formData.get("questionId") ?? "");
+  const question = String(formData.get("question") ?? "").trim();
+
+  if (!question || !questionId) {
+    throw new Error("Missing required fields.");
+  }
+
+  const user = await requireAgencyAdmin();
+
+  const result = await updateTemplateQuestion({
+    questionId,
+    agencyId: user.agencyId,
+    question,
+  });
+
+  revalidatePath(`/dashboard/templates/${result.templateId}`);
+}
+
+export async function reorderTemplateQuestionAction(formData: FormData) {
+  const questionId = String(formData.get("questionId") ?? "");
+  const newPosition = Number(formData.get("newPosition"));
+
+  if (!questionId || !Number.isInteger(newPosition)) {
+    throw new Error("Invalid input.");
+  }
+
+  const user = await requireAgencyAdmin();
+
+  const result = await reorderTemplateQuestion({
+    questionId,
+    newPosition,
+    agencyId: user.agencyId,
+  });
+
+  revalidatePath(`/dashboard/templates/${result.templateId}`);
 }
