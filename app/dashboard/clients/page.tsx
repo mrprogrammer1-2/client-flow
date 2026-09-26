@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clients } from "@/db/schema";
 import { createClientAction } from "@/app/dashboard/clients/actions";
@@ -11,7 +11,9 @@ export default async function ClientsPage() {
   const agencyClients = await db
     .select()
     .from(clients)
-    .where(eq(clients.agencyId, user.agencyId))
+    .where(
+      and(eq(clients.agencyId, user.agencyId), eq(clients.status, "active")),
+    )
     .orderBy(desc(clients.createdAt));
 
   return (

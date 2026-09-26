@@ -15,6 +15,7 @@ import { deleteTemplateStep } from "@/lib/services/delete-template-step";
 import { deleteTemplateQuestion } from "@/lib/services/delete-template-question";
 import { updateTemplateQuestion } from "@/lib/services/update-template-question";
 import { reorderTemplateQuestion } from "@/lib/services/reorder-question";
+import { reorderTemplateStep } from "@/lib/services/reorder-template-step";
 
 const allowedStepTypes = [
   "text",
@@ -222,6 +223,25 @@ export async function reorderTemplateQuestionAction(formData: FormData) {
 
   const result = await reorderTemplateQuestion({
     questionId,
+    newPosition,
+    agencyId: user.agencyId,
+  });
+
+  revalidatePath(`/dashboard/templates/${result.templateId}`);
+}
+
+export async function reorderTemplateStepAction(formData: FormData) {
+  const stepId = String(formData.get("stepId") ?? "");
+  const newPosition = Number(formData.get("newPosition"));
+
+  if (!stepId || !Number.isInteger(newPosition)) {
+    throw new Error("Invalid input.");
+  }
+
+  const user = await requireAgencyAdmin();
+
+  const result = await reorderTemplateStep({
+    stepId,
     newPosition,
     agencyId: user.agencyId,
   });

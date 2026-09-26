@@ -44,6 +44,7 @@ export const users = pgTable("users", {
     .notNull(),
 });
 
+export const clientStatusEnum = pgEnum("client_status", ["active", "archived"]);
 export const clients = pgTable("clients", {
   id: uuid("id").defaultRandom().primaryKey(),
 
@@ -55,6 +56,7 @@ export const clients = pgTable("clients", {
   email: text("email").notNull(),
   companyName: text("company_name").notNull(),
   phone: text("phone"),
+  status: clientStatusEnum("status").notNull().default("active"),
 
   createdAt: timestamp("created_at", {
     withTimezone: true,

@@ -19,6 +19,7 @@ import DeleteStepModal from "./delete-step-modal";
 import DeleteQuestionModal from "./delete-question-modal";
 import EditQuestionModal from "./edit-question-modal";
 import ReorderQuestionButtons from "./QuestionReorderButtons";
+import ReorderStepButtons from "./ReorderStepButtons";
 
 type TemplateDetailsPageProps = {
   params: Promise<{
@@ -193,8 +194,16 @@ export default async function TemplateDetailsPage({
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <EditStepModal step={step} />
-                      <DeleteStepModal stepId={step.id} />
+                      <div className="flex shrink-0 items-center gap-2">
+                        <EditStepModal step={step} />
+                        <DeleteStepModal stepId={step.id} />
+
+                        <ReorderStepButtons
+                          stepId={step.id}
+                          position={step.position}
+                          totalSteps={steps.length}
+                        />
+                      </div>
                     </div>
                   </div>
 
