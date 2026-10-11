@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   pgEnum,
   pgTable,
@@ -22,6 +22,8 @@ export const agencies = pgTable("agencies", {
     .notNull(),
 });
 
+export const userRoleEnum = pgEnum("user_role", ["owner", "admin", "member"]);
+export const userStatusEnum = pgEnum("user_status", ["active", "removed"]);
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
 
@@ -35,7 +37,8 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
 
   // Later, this controls dashboard permissions.
-  role: text("role").notNull().default("owner"),
+  role: userRoleEnum("role").notNull().default("member"),
+  status: userStatusEnum("status").notNull().default("active"),
 
   createdAt: timestamp("created_at", {
     withTimezone: true,
@@ -43,6 +46,47 @@ export const users = pgTable("users", {
     .defaultNow()
     .notNull(),
 });
+
+export const invitationStatusEnum = pgEnum("invitation_status", [
+  "pending",
+  "accepted",
+  "revoked",
+  "expired",
+]);
+export const invitations = pgTable(
+  "invitations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    agencyId: uuid("agency_id")
+      .notNull()
+      .references(() => agencies.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    status: invitationStatusEnum("status").notNull().default("pending"),
+    tokenHash: text("token_hash").notNull().unique(),
+    invitedBy: uuid("invited_by")
+      .notNull()
+      .references(() => users.id, {
+        onDelete: "restrict",
+      }),
+    expiresAt: timestamp("expires_at", {
+      withTimezone: true,
+    }).notNull(),
+    revokedAt: timestamp("revoked_at", {
+      withTimezone: true,
+    }),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("pending_invitation_per_agency_email")
+      .on(table.agencyId, table.email)
+      .where(sql`${table.status} = 'pending'`),
+  ],
+);
+export type Invitation = typeof invitations.$inferSelect;
 
 export const clientStatusEnum = pgEnum("client_status", ["active", "archived"]);
 export const clients = pgTable("clients", {
@@ -103,6 +147,11 @@ export const projects = pgTable("projects", {
     .$onUpdate(() => new Date()),
 });
 
+export const templateStatusEnum = pgEnum("template_status", [
+  "active",
+  "inactive",
+  "archived",
+]);
 export const onboardingTemplates = pgTable("onboarding_templates", {
   id: uuid("id").defaultRandom().primaryKey(),
 
@@ -112,6 +161,8 @@ export const onboardingTemplates = pgTable("onboarding_templates", {
 
   name: text("name").notNull(),
   description: text("description"),
+
+  status: templateStatusEnum("status").notNull().default("inactive"),
 
   createdAt: timestamp("created_at", {
     withTimezone: true,

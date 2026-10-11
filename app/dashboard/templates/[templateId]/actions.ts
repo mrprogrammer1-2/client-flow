@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, max } from "drizzle-orm";
+import { and, eq, max, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import {
@@ -8,7 +8,6 @@ import {
   onboardingTemplateSteps,
   onboardingTemplates,
 } from "@/db/schema";
-import { requireCurrentUser } from "@/lib/services/current-user";
 import { requireAgencyAdmin } from "@/lib/services/check-agency-admin";
 import { updateTemplateStep } from "@/lib/services/update-template-step";
 import { deleteTemplateStep } from "@/lib/services/delete-template-step";
@@ -16,6 +15,10 @@ import { deleteTemplateQuestion } from "@/lib/services/delete-template-question"
 import { updateTemplateQuestion } from "@/lib/services/update-template-question";
 import { reorderTemplateQuestion } from "@/lib/services/reorder-question";
 import { reorderTemplateStep } from "@/lib/services/reorder-template-step";
+import syncTemplateStatus from "@/lib/services/sync-template-status";
+import archiveTemplate from "@/lib/services/archive-template";
+import restoreTemplate from "@/lib/services/retore-template";
+import requireEditableTemplate from "@/lib/services/require-editable-template";
 
 const allowedStepTypes = [
   "text",
@@ -40,23 +43,11 @@ export async function createTemplateStepAction(formData: FormData) {
     throw new Error("Invalid step type.");
   }
 
-  const user = await requireCurrentUser();
-
-  // Confirm this template belongs to the logged-in agency.
-  const [template] = await db
-    .select({ id: onboardingTemplates.id })
-    .from(onboardingTemplates)
-    .where(
-      and(
-        eq(onboardingTemplates.id, templateId),
-        eq(onboardingTemplates.agencyId, user.agencyId),
-      ),
-    )
-    .limit(1);
-
-  if (!template) {
-    throw new Error("Template was not found for this agency.");
-  }
+  const user = await requireAgencyAdmin();
+  await requireEditableTemplate({
+    templateId,
+    agencyId: user.agencyId,
+  });
 
   // Assign the next available display position automatically.
   const [lastStep] = await db
@@ -77,7 +68,49 @@ export async function createTemplateStepAction(formData: FormData) {
     position,
   });
 
+  await syncTemplateStatus(templateId);
+
   revalidatePath(`/dashboard/templates/${templateId}`);
+}
+
+export async function archiveTemplateAction(formData: FormData) {
+  const templateId = String(formData.get("templateId") ?? "");
+
+  if (!templateId) {
+    throw new Error("Template ID is required.");
+  }
+
+  const user = await requireAgencyAdmin();
+
+  await archiveTemplate({ templateId, agencyId: user.agencyId });
+
+  revalidatePath("/dashboard/templates");
+  revalidatePath(`/dashboard/templates/${templateId}`);
+}
+
+export async function updateTemplateStepAction(formData: FormData) {
+  const stepId = String(formData.get("stepId") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  const required = formData.get("required") === "on";
+
+  if (!stepId || !title) {
+    throw new Error("Missing required fields.");
+  }
+
+  const user = await requireAgencyAdmin();
+
+  const result = await updateTemplateStep({
+    stepId,
+    agencyId: user.agencyId,
+    title,
+    description,
+    required,
+  });
+
+  await syncTemplateStatus(result.templateId);
+
+  revalidatePath(`/dashboard/templates/${result.templateId}`);
 }
 
 export async function createTemplateQuestionAction(formData: FormData) {
@@ -88,7 +121,7 @@ export async function createTemplateQuestionAction(formData: FormData) {
     throw new Error("Step ID and question are required.");
   }
 
-  const user = await requireCurrentUser();
+  const user = await requireAgencyAdmin();
 
   const [step] = await db
     .select({
@@ -105,6 +138,7 @@ export async function createTemplateQuestionAction(formData: FormData) {
       and(
         eq(onboardingTemplateSteps.id, stepId),
         eq(onboardingTemplates.agencyId, user.agencyId),
+        ne(onboardingTemplates.status, "archived"),
       ),
     )
     .limit(1);
@@ -135,29 +169,6 @@ export async function createTemplateQuestionAction(formData: FormData) {
   revalidatePath(`/dashboard/templates/${step.templateId}`);
 }
 
-export async function updateTemplateStepAction(formData: FormData) {
-  const stepId = String(formData.get("stepId") ?? "");
-  const title = String(formData.get("title") ?? "").trim();
-  const description = String(formData.get("description") ?? "").trim();
-  const required = formData.get("required") === "on";
-
-  if (!stepId || !title) {
-    throw new Error("Missing required fields.");
-  }
-
-  const user = await requireAgencyAdmin();
-
-  const result = await updateTemplateStep({
-    stepId,
-    agencyId: user.agencyId,
-    title,
-    description,
-    required,
-  });
-
-  revalidatePath(`/dashboard/templates/${result.templateId}`);
-}
-
 export async function deleteTemplateStepAction(formData: FormData) {
   const stepId = String(formData.get("stepId") ?? "");
 
@@ -171,6 +182,7 @@ export async function deleteTemplateStepAction(formData: FormData) {
     stepId,
     agencyId: user.agencyId,
   });
+  await syncTemplateStatus(result.templateId);
 
   revalidatePath(`/dashboard/templates/${result.templateId}`);
 }
@@ -247,4 +259,22 @@ export async function reorderTemplateStepAction(formData: FormData) {
   });
 
   revalidatePath(`/dashboard/templates/${result.templateId}`);
+}
+
+export async function restoreTemplateAction(formData: FormData) {
+  const templateId = String(formData.get("templateId") ?? "");
+
+  if (!templateId) {
+    throw new Error("Template ID is required.");
+  }
+
+  const user = await requireAgencyAdmin();
+
+  await restoreTemplate({
+    templateId,
+    agencyId: user.agencyId,
+  });
+
+  revalidatePath("/dashboard/templates");
+  revalidatePath(`/dashboard/templates/${templateId}`);
 }

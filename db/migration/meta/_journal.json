@@ -85,6 +85,27 @@
       "when": 1790154015342,
       "tag": "0011_left_ravenous",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790403206673,
+      "tag": "0012_remarkable_penance",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791084845968,
+      "tag": "0013_pink_black_widow",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791431893058,
+      "tag": "0014_sudden_darkhawk",
+      "breakpoints": true
     }
   ]
 }

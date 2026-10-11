@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { clients } from "@/db/schema";
 import { createClientAction } from "@/app/dashboard/clients/actions";
 import { requireCurrentUser } from "@/lib/services/current-user";
+import Link from "next/link";
 
 export default async function ClientsPage() {
   const user = await requireCurrentUser();
@@ -78,7 +79,14 @@ export default async function ClientsPage() {
           <div className="mt-4 space-y-3">
             {agencyClients.map((client) => (
               <article key={client.id} className="rounded-lg border p-4">
-                <h3 className="font-semibold">{client.companyName}</h3>
+                <h3 className="font-semibold">
+                  <Link
+                    href={`/dashboard/clients/${client.id}`}
+                    className="hover:underline"
+                  >
+                    {client.companyName}
+                  </Link>
+                </h3>
                 <p>{client.name}</p>
                 <p className="text-sm text-gray-600">{client.email}</p>
 

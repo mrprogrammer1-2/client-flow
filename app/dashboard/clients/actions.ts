@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { clients } from "@/db/schema";
 import { requireCurrentUser } from "@/lib/services/current-user";
+import { requireAgencyAdmin } from "@/lib/services/check-agency-admin";
+import { redirect } from "next/navigation";
+import archiveClient from "@/lib/services/archive-client";
 
 export async function createClientAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -26,4 +29,25 @@ export async function createClientAction(formData: FormData) {
   });
 
   revalidatePath("/dashboard/clients");
+}
+
+export async function archiveClientAction(formData: FormData) {
+  const clientId = String(formData.get("clientId") ?? "");
+
+  if (!clientId) {
+    throw new Error("Client ID is required.");
+  }
+
+  const user = await requireAgencyAdmin();
+
+  const result = await archiveClient({
+    clientId,
+    agencyId: user.agencyId,
+  });
+
+  if (!result) {
+    throw new Error("Failed to archive client.");
+  }
+
+  redirect(`/dashboard/clients/archived`);
 }

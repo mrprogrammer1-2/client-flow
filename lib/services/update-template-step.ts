@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { onboardingTemplates, onboardingTemplateSteps } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 
 type UpdateTemplateStepInput = {
   stepId: string;
@@ -16,7 +16,6 @@ export async function updateTemplateStep(input: UpdateTemplateStepInput) {
   const [step] = await db
     .select({
       templateId: onboardingTemplateSteps.templateId,
-      agencyId: onboardingTemplates.agencyId,
     })
     .from(onboardingTemplateSteps)
     .innerJoin(
@@ -27,6 +26,7 @@ export async function updateTemplateStep(input: UpdateTemplateStepInput) {
       and(
         eq(onboardingTemplateSteps.id, stepId),
         eq(onboardingTemplates.agencyId, agencyId),
+        ne(onboardingTemplates.status, "archived"),
       ),
     )
     .limit(1);
@@ -43,8 +43,17 @@ export async function updateTemplateStep(input: UpdateTemplateStepInput) {
       required,
       updatedAt: new Date(),
     })
-    .where(eq(onboardingTemplateSteps.id, stepId))
+    .where(
+      and(
+        eq(onboardingTemplateSteps.id, stepId),
+        eq(onboardingTemplateSteps.templateId, step.templateId),
+      ),
+    )
     .returning();
+
+  if (!updatedStep) {
+    throw new Error("Step could not be updated.");
+  }
 
   return {
     ...updatedStep,

@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { onboardingTemplates, onboardingTemplateSteps } from "@/db/schema";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, ne, sql } from "drizzle-orm";
 
 type DeleteTemplateStepInput = {
   stepId: string;
@@ -27,6 +27,7 @@ export async function deleteTemplateStep(input: DeleteTemplateStepInput) {
         and(
           eq(onboardingTemplateSteps.id, stepId),
           eq(onboardingTemplates.agencyId, agencyId),
+          ne(onboardingTemplates.status, "archived"),
         ),
       )
       .limit(1);
@@ -38,9 +39,19 @@ export async function deleteTemplateStep(input: DeleteTemplateStepInput) {
     // 2. Delete the step.
     // Its template questions are deleted automatically
     // because of onDelete: "cascade".
-    await tx
+    const [deletedStep] = await tx
       .delete(onboardingTemplateSteps)
-      .where(eq(onboardingTemplateSteps.id, stepId));
+      .where(
+        and(
+          eq(onboardingTemplateSteps.id, stepId),
+          eq(onboardingTemplateSteps.templateId, selectedStep.templateId),
+        ),
+      )
+      .returning();
+
+    if (!deletedStep) {
+      throw new Error("Step could not be deleted.");
+    }
 
     // 3. Shift every step after the deleted step up by 1.
     await tx

@@ -10,6 +10,8 @@ import {
 import { createHash, randomUUID } from "crypto";
 import { eq, and } from "drizzle-orm";
 import { uploadToCloudinary } from "./upload-to-cloudinary";
+import { deleteFromCloudinary } from "./delete-from-cloudinary";
+import calculateOnboardingStatus from "./calculate-onboarding-status";
 
 type SubmitClientResponseInput = {
   token: string;
@@ -92,124 +94,132 @@ export async function submitClientResponse({
     }
   }
 
-  let uploadedFile: { url: string; publicId: string } | undefined;
+  let uploadedFile:
+    | { url: string; publicId: string; resourceType: "image" | "video" | "raw" }
+    | undefined;
 
-  if (step.type === "file" && file) {
-    uploadedFile = await uploadToCloudinary(file);
-  }
-
-  return await db.transaction(async (tx) => {
-    const [currentStep] = await tx
-      .select({
-        id: projectOnboardingSteps.id,
-        status: projectOnboardingSteps.status,
-      })
-      .from(projectOnboardingSteps)
-      .where(eq(projectOnboardingSteps.id, step.id))
-      .limit(1);
-
-    if (!currentStep) {
-      throw new Error("Step not found.");
+  try {
+    if (step.type === "file" && file) {
+      uploadedFile = await uploadToCloudinary(file);
     }
 
-    if (currentStep.status === "completed") {
-      throw new Error("Step has already been completed.");
-    }
-
-    if (step.type === "questionnaire") {
-      if (!answers || answers.length === 0) {
-        throw new Error("At least one answer is required.");
-      }
-
-      const questions = await tx
+    return await db.transaction(async (tx) => {
+      const [currentStep] = await tx
         .select({
-          id: projectOnboardingQuestions.id,
+          id: projectOnboardingSteps.id,
+          status: projectOnboardingSteps.status,
         })
-        .from(projectOnboardingQuestions)
-        .where(eq(projectOnboardingQuestions.projectOnboardingStepId, step.id));
+        .from(projectOnboardingSteps)
+        .where(eq(projectOnboardingSteps.id, step.id))
+        .limit(1);
 
-      // Make sure every question has an answer
-      for (const question of questions) {
-        const answer = answers.find(
-          (answer) => answer.questionId === question.id,
-        );
-
-        if (!answer || !answer.answer.trim()) {
-          throw new Error("All questionnaire questions must be answered.");
-        }
+      if (!currentStep) {
+        throw new Error("Step not found.");
       }
 
-      // Make sure every submitted answer belongs to this questionnaire
-      for (const answer of answers) {
-        const questionExists = questions.some(
-          (question) => question.id === answer.questionId,
-        );
+      if (currentStep.status === "completed") {
+        throw new Error("Step has already been completed.");
+      }
 
-        if (!questionExists) {
-          throw new Error("Invalid question.");
+      if (step.type === "questionnaire") {
+        if (!answers || answers.length === 0) {
+          throw new Error("At least one answer is required.");
         }
 
-        await tx
-          .insert(projectOnboardingQuestionResponses)
-          .values({
-            questionId: answer.questionId,
-            answer: answer.answer.trim(),
+        const questions = await tx
+          .select({
+            id: projectOnboardingQuestions.id,
           })
-          .onConflictDoUpdate({
-            target: projectOnboardingQuestionResponses.questionId,
-            set: {
+          .from(projectOnboardingQuestions)
+          .where(
+            eq(projectOnboardingQuestions.projectOnboardingStepId, step.id),
+          );
+
+        // Make sure every question has an answer
+        for (const question of questions) {
+          const answer = answers.find(
+            (answer) => answer.questionId === question.id,
+          );
+
+          if (!answer || !answer.answer.trim()) {
+            throw new Error("All questionnaire questions must be answered.");
+          }
+        }
+
+        // Make sure every submitted answer belongs to this questionnaire
+        for (const answer of answers) {
+          const questionExists = questions.some(
+            (question) => question.id === answer.questionId,
+          );
+
+          if (!questionExists) {
+            throw new Error("Invalid question.");
+          }
+
+          await tx
+            .insert(projectOnboardingQuestionResponses)
+            .values({
+              questionId: answer.questionId,
               answer: answer.answer.trim(),
-            },
-          });
+            })
+            .onConflictDoUpdate({
+              target: projectOnboardingQuestionResponses.questionId,
+              set: {
+                answer: answer.answer.trim(),
+              },
+            });
+        }
+      } else {
+        await tx.insert(projectOnboardingStepResponses).values({
+          id: randomUUID(),
+          projectOnboardingStepId: step.id,
+          value: cleanValue,
+          fileUrl: uploadedFile?.url ?? null,
+          fileName: file?.name ?? null,
+        });
       }
-    } else {
-      await tx.insert(projectOnboardingStepResponses).values({
-        id: randomUUID(),
-        projectOnboardingStepId: step.id,
-        value: cleanValue,
-        fileUrl: uploadedFile?.url ?? null,
-        fileName: file?.name ?? null,
+
+      await tx
+        .update(projectOnboardingSteps)
+        .set({
+          status: "completed",
+          completedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(projectOnboardingSteps.id, step.id));
+
+      const allSteps = await tx
+        .select({
+          status: projectOnboardingSteps.status,
+          required: projectOnboardingSteps.required,
+        })
+        .from(projectOnboardingSteps)
+        .where(
+          eq(
+            projectOnboardingSteps.projectOnboardingId,
+            step.projectOnboardingId,
+          ),
+        );
+
+      const onboardingStatus = calculateOnboardingStatus(allSteps);
+
+      // 9. Update onboarding status
+      await tx
+        .update(projectOnboardings)
+        .set({
+          status: onboardingStatus,
+          updatedAt: new Date(),
+        })
+        .where(eq(projectOnboardings.id, step.projectOnboardingId));
+    });
+  } catch (error) {
+    if (uploadedFile) {
+      await deleteFromCloudinary({
+        publicId: uploadedFile.publicId,
+        resourceType: uploadedFile.resourceType,
       });
     }
 
-    await tx
-      .update(projectOnboardingSteps)
-      .set({
-        status: "completed",
-        completedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(projectOnboardingSteps.id, step.id));
-
-    const allSteps = await tx
-      .select({
-        status: projectOnboardingSteps.status,
-      })
-      .from(projectOnboardingSteps)
-      .where(
-        eq(
-          projectOnboardingSteps.projectOnboardingId,
-          step.projectOnboardingId,
-        ),
-      );
-
-    const allCompleted = allSteps.every((s) => s.status === "completed");
-
-    const someCompleted = allSteps.some((s) => s.status === "completed");
-
-    const onboardingStatus = allCompleted
-      ? "completed"
-      : someCompleted
-        ? "in_progress"
-        : "not_started";
-
-    // 9. Update onboarding status
-    await tx
-      .update(projectOnboardings)
-      .set({
-        status: onboardingStatus,
-        updatedAt: new Date(),
-      })
-      .where(eq(projectOnboardings.id, step.projectOnboardingId));
-  });
+    throw error;
+  }
 }

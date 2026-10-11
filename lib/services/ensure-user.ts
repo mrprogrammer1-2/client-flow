@@ -22,6 +22,10 @@ export async function ensureUserAndAgency(kindeUser: KindeUser) {
   const existingUser = existingUsers[0];
 
   if (existingUser) {
+    if (existingUser.status === "removed") {
+      throw new Error("This user has been removed and cannot be reactivated.");
+    }
+
     return existingUser;
   }
 

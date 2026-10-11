@@ -4,7 +4,7 @@ import {
   onboardingTemplateSteps,
   onboardingTemplates,
 } from "@/db/schema";
-import { and, eq, gt, lt, sql } from "drizzle-orm";
+import { and, eq, gt, lt, ne, sql } from "drizzle-orm";
 
 type ReorderQuestionInput = {
   questionId: string;
@@ -18,7 +18,6 @@ export async function reorderTemplateQuestion({
   agencyId,
 }: ReorderQuestionInput) {
   return await db.transaction(async (tx) => {
-    // 1. Find the question and verify ownership
     const [question] = await tx
       .select({
         id: onboardingTemplateQuestions.id,
@@ -39,6 +38,7 @@ export async function reorderTemplateQuestion({
         and(
           eq(onboardingTemplateQuestions.id, questionId),
           eq(onboardingTemplates.agencyId, agencyId),
+          ne(onboardingTemplates.status, "archived"),
         ),
       )
       .limit(1);
@@ -49,12 +49,10 @@ export async function reorderTemplateQuestion({
 
     const { stepId, position: oldPosition, templateId } = question;
 
-    // 2. Don't do anything if position didn't change
     if (oldPosition === newPosition) {
       return { templateId };
     }
 
-    // 3. Find how many questions exist in this step
     const questions = await tx
       .select({
         id: onboardingTemplateQuestions.id,
@@ -63,20 +61,29 @@ export async function reorderTemplateQuestion({
       .from(onboardingTemplateQuestions)
       .where(eq(onboardingTemplateQuestions.stepId, stepId));
 
-    // 4. Validate the requested position
     if (newPosition < 1 || newPosition > questions.length) {
       throw new Error("Invalid position.");
     }
 
-    // 5. Temporarily move the question out of the way
-    await tx
+    const [movedQuestion] = await tx
       .update(onboardingTemplateQuestions)
       .set({ position: -1 })
-      .where(eq(onboardingTemplateQuestions.id, questionId));
+      .where(
+        and(
+          eq(onboardingTemplateQuestions.id, questionId),
+          eq(onboardingTemplateQuestions.stepId, stepId),
+        ),
+      )
+      .returning({
+        id: onboardingTemplateQuestions.id,
+      });
+
+    if (!movedQuestion) {
+      throw new Error("Question could not be reordered.");
+    }
 
     const TEMP_OFFSET = 1000000;
 
-    // 6. Temporarily move affected questions
     await tx
       .update(onboardingTemplateQuestions)
       .set({
@@ -94,7 +101,6 @@ export async function reorderTemplateQuestion({
         ),
       );
 
-    // 7. Give affected questions their new positions
     await tx
       .update(onboardingTemplateQuestions)
       .set({
@@ -110,11 +116,22 @@ export async function reorderTemplateQuestion({
         ),
       );
 
-    // 8. Put the moved question into its final position
-    await tx
+    const [updatedQuestion] = await tx
       .update(onboardingTemplateQuestions)
       .set({ position: newPosition })
-      .where(eq(onboardingTemplateQuestions.id, questionId));
+      .where(
+        and(
+          eq(onboardingTemplateQuestions.id, questionId),
+          eq(onboardingTemplateQuestions.stepId, stepId),
+        ),
+      )
+      .returning({
+        id: onboardingTemplateQuestions.id,
+      });
+
+    if (!updatedQuestion) {
+      throw new Error("Question could not be reordered.");
+    }
 
     return { templateId };
   });

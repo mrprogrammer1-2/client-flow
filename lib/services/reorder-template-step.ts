@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { onboardingTemplates, onboardingTemplateSteps } from "@/db/schema";
-import { eq, and, sql, gt, lt } from "drizzle-orm";
+import { eq, and, sql, gt, lt, ne } from "drizzle-orm";
 
 type ReorderStepProps = {
   stepId: string;
@@ -10,6 +10,7 @@ type ReorderStepProps = {
 
 export async function reorderTemplateStep(params: ReorderStepProps) {
   const { stepId, newPosition, agencyId } = params;
+
   return await db.transaction(async (tx) => {
     const [step] = await tx
       .select({
@@ -26,6 +27,7 @@ export async function reorderTemplateStep(params: ReorderStepProps) {
         and(
           eq(onboardingTemplateSteps.id, stepId),
           eq(onboardingTemplates.agencyId, agencyId),
+          ne(onboardingTemplates.status, "archived"),
         ),
       )
       .limit(1);
@@ -33,6 +35,7 @@ export async function reorderTemplateStep(params: ReorderStepProps) {
     if (!step) {
       throw new Error("Step not found");
     }
+
     const oldPosition = step.position;
 
     if (oldPosition === newPosition) {
@@ -54,7 +57,12 @@ export async function reorderTemplateStep(params: ReorderStepProps) {
     await tx
       .update(onboardingTemplateSteps)
       .set({ position: -1 })
-      .where(eq(onboardingTemplateSteps.id, stepId));
+      .where(
+        and(
+          eq(onboardingTemplateSteps.id, stepId),
+          eq(onboardingTemplateSteps.templateId, step.templateId),
+        ),
+      );
 
     const TEMP_OFFSET = 1000000;
 
@@ -93,7 +101,12 @@ export async function reorderTemplateStep(params: ReorderStepProps) {
     await tx
       .update(onboardingTemplateSteps)
       .set({ position: newPosition })
-      .where(eq(onboardingTemplateSteps.id, stepId));
+      .where(
+        and(
+          eq(onboardingTemplateSteps.id, stepId),
+          eq(onboardingTemplateSteps.templateId, step.templateId),
+        ),
+      );
 
     return {
       templateId: step.templateId,

@@ -25,34 +25,6 @@ type CreateProjectWithOnboardingInput = {
 export async function createProjectWithOnboarding(
   input: CreateProjectWithOnboardingInput,
 ) {
-  // 1. Confirm that the client belongs to the signed-in user's agency.
-  const [client] = await db
-    .select({
-      id: clients.id,
-      agencyId: clients.agencyId,
-    })
-    .from(clients)
-    .where(eq(clients.id, input.clientId))
-    .limit(1);
-
-  if (!client || client.agencyId !== input.agencyId) {
-    throw new Error("Client was not found for this agency.");
-  }
-
-  // 2. Confirm that the template belongs to the same agency.
-  const [template] = await db
-    .select({
-      id: onboardingTemplates.id,
-      agencyId: onboardingTemplates.agencyId,
-    })
-    .from(onboardingTemplates)
-    .where(eq(onboardingTemplates.id, input.templateId))
-    .limit(1);
-
-  if (!template || template.agencyId !== input.agencyId) {
-    throw new Error("Template was not found for this agency.");
-  }
-
   // IDs are created before the transaction so all inserts can reference them.
   const projectId = randomUUID();
   const onboardingId = randomUUID();
@@ -73,6 +45,44 @@ export async function createProjectWithOnboarding(
 
   // 4. All database writes succeed together or fail together.
   await db.transaction(async (tx) => {
+    // 1. Confirm that the client belongs to the signed-in user's agency.
+    const [client] = await tx
+      .select({
+        id: clients.id,
+        agencyId: clients.agencyId,
+        status: clients.status,
+      })
+      .from(clients)
+      .where(eq(clients.id, input.clientId))
+      .limit(1);
+
+    if (
+      !client ||
+      client.agencyId !== input.agencyId ||
+      client.status !== "active"
+    ) {
+      throw new Error("Client was not found for this agency.");
+    }
+
+    // 2. Confirm that the template belongs to the same agency.
+    const [template] = await tx
+      .select({
+        id: onboardingTemplates.id,
+        agencyId: onboardingTemplates.agencyId,
+        status: onboardingTemplates.status,
+      })
+      .from(onboardingTemplates)
+      .where(eq(onboardingTemplates.id, input.templateId))
+      .limit(1);
+
+    if (
+      !template ||
+      template.agencyId !== input.agencyId ||
+      template.status !== "active"
+    ) {
+      throw new Error("Template was not found for this agency.");
+    }
+
     await tx.insert(projects).values({
       id: projectId,
       clientId: input.clientId,

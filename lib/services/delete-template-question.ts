@@ -4,7 +4,7 @@ import {
   onboardingTemplates,
   onboardingTemplateSteps,
 } from "@/db/schema";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, ne, sql } from "drizzle-orm";
 
 type DeleteQuestionProps = {
   questionId: string;
@@ -35,6 +35,7 @@ export async function deleteTemplateQuestion({
         and(
           eq(onboardingTemplateQuestions.id, questionId),
           eq(onboardingTemplates.agencyId, agencyId),
+          ne(onboardingTemplates.status, "archived"),
         ),
       )
       .limit(1);
@@ -43,9 +44,21 @@ export async function deleteTemplateQuestion({
       throw new Error("Question not found.");
     }
 
-    await tx
+    const [deletedQuestion] = await tx
       .delete(onboardingTemplateQuestions)
-      .where(eq(onboardingTemplateQuestions.id, questionId));
+      .where(
+        and(
+          eq(onboardingTemplateQuestions.id, questionId),
+          eq(onboardingTemplateQuestions.stepId, selectedQuestion.stepId),
+        ),
+      )
+      .returning({
+        id: onboardingTemplateQuestions.id,
+      });
+
+    if (!deletedQuestion) {
+      throw new Error("Question could not be deleted.");
+    }
 
     await tx
       .update(onboardingTemplateQuestions)

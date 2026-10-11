@@ -11,6 +11,7 @@ import { db } from "@/db";
 import { clients, projects } from "@/db/schema";
 import { and, eq, exists } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import deleteProject from "@/lib/services/delete-project";
 
 export type CreateProjectState = {
   projectId: string | null;
@@ -40,6 +41,8 @@ export async function createProjectAction(
     name,
     description: description || undefined,
   });
+
+  revalidatePath("/dashboard/projects");
 
   return result;
 }
@@ -71,10 +74,14 @@ export async function completeProjectAction(formData: FormData) {
 
   const user = await requireAgencyAdmin();
 
-  await completeProject({
+  const result = await completeProject({
     projectId,
     agencyId: user.agencyId,
   });
+
+  if (!result) {
+    throw new Error("Project could not be completed.");
+  }
 
   redirect(`/dashboard/projects/${projectId}`);
 }
@@ -88,12 +95,16 @@ export async function archiveProjectAction(formData: FormData) {
 
   const user = await requireAgencyAdmin();
 
-  await archiveProject({
+  const result = await archiveProject({
     projectId,
     agencyId: user.agencyId,
   });
 
-  redirect(`/dashboard/projects/archived`);
+  if (!result) {
+    throw new Error("Project could not be archived.");
+  }
+
+  redirect("/dashboard/projects/archived");
 }
 
 export async function restoreProjectAction(formData: FormData) {
@@ -122,22 +133,10 @@ export async function deleteProjectAction(formData: FormData) {
 
   const user = await requireAgencyAdmin();
 
-  await db.delete(projects).where(
-    and(
-      eq(projects.id, projectId),
-      exists(
-        db
-          .select({ id: clients.id })
-          .from(clients)
-          .where(
-            and(
-              eq(clients.id, projects.clientId),
-              eq(clients.agencyId, user.agencyId),
-            ),
-          ),
-      ),
-    ),
-  );
+  await deleteProject({
+    projectId,
+    agencyId: user.agencyId,
+  });
 
   revalidatePath("/dashboard/projects");
 }

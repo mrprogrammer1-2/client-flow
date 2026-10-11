@@ -4,7 +4,7 @@ import {
   onboardingTemplates,
   onboardingTemplateSteps,
 } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 
 type UpdateQuestionProps = {
   question: string;
@@ -20,6 +20,7 @@ export async function updateTemplateQuestion({
   return await db.transaction(async (tx) => {
     const [selectedQuestion] = await tx
       .select({
+        stepId: onboardingTemplateQuestions.stepId,
         templateId: onboardingTemplateSteps.templateId,
       })
       .from(onboardingTemplateQuestions)
@@ -35,6 +36,7 @@ export async function updateTemplateQuestion({
         and(
           eq(onboardingTemplateQuestions.id, questionId),
           eq(onboardingTemplates.agencyId, agencyId),
+          ne(onboardingTemplates.status, "archived"),
         ),
       )
       .limit(1);
@@ -49,11 +51,20 @@ export async function updateTemplateQuestion({
         question,
         updatedAt: new Date(),
       })
-      .where(eq(onboardingTemplateQuestions.id, questionId))
+      .where(
+        and(
+          eq(onboardingTemplateQuestions.id, questionId),
+          eq(onboardingTemplateQuestions.stepId, selectedQuestion.stepId),
+        ),
+      )
       .returning({
         id: onboardingTemplateQuestions.id,
         question: onboardingTemplateQuestions.question,
       });
+
+    if (!updatedQuestion) {
+      throw new Error("Question could not be updated.");
+    }
 
     return {
       ...updatedQuestion,

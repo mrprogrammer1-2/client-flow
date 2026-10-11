@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { clients, projects } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, exists } from "drizzle-orm";
 
 type Props = {
   projectId: string;
@@ -20,13 +20,32 @@ export async function completeProject({ projectId, agencyId }: Props) {
       return null;
     }
 
-    await tx
+    const [updatedProject] = await tx
       .update(projects)
       .set({
         status: "completed",
         updatedAt: new Date(),
       })
-      .where(eq(projects.id, projectId));
+      .where(
+        and(
+          eq(projects.id, projectId),
+          eq(projects.status, "active"),
+          exists(
+            tx
+              .select({ id: clients.id })
+              .from(clients)
+              .where(
+                and(
+                  eq(clients.id, projects.clientId),
+                  eq(clients.agencyId, agencyId),
+                ),
+              ),
+          ),
+        ),
+      )
+      .returning({ id: projects.id });
+
+    if (!updatedProject) return null;
 
     return { success: true };
   });

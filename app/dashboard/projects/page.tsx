@@ -30,7 +30,9 @@ export default async function ProjectsPage() {
       name: clients.name,
     })
     .from(clients)
-    .where(eq(clients.agencyId, user.agencyId))
+    .where(
+      and(eq(clients.agencyId, user.agencyId), eq(clients.status, "active")),
+    )
     .orderBy(desc(clients.createdAt));
 
   const agencyTemplates = await db
@@ -39,7 +41,12 @@ export default async function ProjectsPage() {
       name: onboardingTemplates.name,
     })
     .from(onboardingTemplates)
-    .where(eq(onboardingTemplates.agencyId, user.agencyId));
+    .where(
+      and(
+        eq(onboardingTemplates.agencyId, user.agencyId),
+        eq(onboardingTemplates.status, "active"),
+      ),
+    );
 
   const statusColors: Record<string, string> = {
     active: "bg-green-100 text-green-700",

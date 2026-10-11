@@ -8,6 +8,7 @@ import {
   projects,
 } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
+import calculateOnboardingStatus from "./calculate-onboarding-status";
 
 type Props = {
   stepId: string;
@@ -56,6 +57,7 @@ export async function completeOnboardingStep({ stepId, agencyId }: Props) {
     const allSteps = await tx
       .select({
         status: projectOnboardingSteps.status,
+        required: projectOnboardingSteps.required,
       })
       .from(projectOnboardingSteps)
       .where(
@@ -66,20 +68,7 @@ export async function completeOnboardingStep({ stepId, agencyId }: Props) {
       )
       .orderBy(asc(projectOnboardingSteps.position));
 
-    // 4. Calculate the new onboarding status
-    const allCompleted = allSteps.every((step) => step.status === "completed");
-
-    const someCompleted = allSteps.some((step) => step.status === "completed");
-
-    let onboardingStatus: "not_started" | "in_progress" | "completed";
-
-    if (allCompleted) {
-      onboardingStatus = "completed";
-    } else if (someCompleted) {
-      onboardingStatus = "in_progress";
-    } else {
-      onboardingStatus = "not_started";
-    }
+    const onboardingStatus = calculateOnboardingStatus(allSteps);
 
     // 5. Update the parent onboarding
     await tx

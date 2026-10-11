@@ -34,8 +34,17 @@ export async function uploadToCloudinary(file: File) {
     uploadStream.end(buffer);
   });
 
+  if (
+    result.resource_type !== "image" &&
+    result.resource_type !== "video" &&
+    result.resource_type !== "raw"
+  ) {
+    throw new Error("Cloudinary returned an unsupported resource type.");
+  }
+
   return {
     url: result.secure_url,
     publicId: result.public_id,
+    resourceType: result.resource_type,
   };
 }

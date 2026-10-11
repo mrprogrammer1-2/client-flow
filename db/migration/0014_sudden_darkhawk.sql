@@ -1,0 +1,2 @@
+CREATE TYPE "public"."template_status" AS ENUM('active', 'inactive', 'archived');--> statement-breakpoint
+ALTER TABLE "onboarding_templates" ADD COLUMN "status" "template_status" DEFAULT 'inactive' NOT NULL;

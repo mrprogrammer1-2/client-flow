@@ -62,6 +62,19 @@ export default async function TemplatesPage() {
               <article key={template.id} className="rounded-lg border p-4">
                 <h3 className="font-semibold">{template.name}</h3>
 
+                <p className="mt-1 text-sm text-gray-500">
+                  Status:{" "}
+                  <span
+                    className={`ml-1 rounded px-2 py-1 text-xs font-medium ${
+                      template.status === "active"
+                        ? "bg-green-100 text-green-600"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {template.status}
+                  </span>
+                </p>
+
                 {template.description ? (
                   <p className="mt-1 text-sm text-gray-600">
                     {template.description}
