@@ -1,4 +1,4 @@
-import { submitClientResponseAction } from "../action";
+import { submitClientResponseAction, requestPortalVerificationAction, verifyPortalCodeAction } from "../action";
 import { getClientPortal } from "@/lib/services/get-client-portal";
 import { notFound } from "next/navigation";
 
@@ -6,15 +6,60 @@ type Props = {
   params: Promise<{
     token: string;
   }>;
+  searchParams: Promise<{ sent?: string; error?: string }>;
 };
 
-export default async function ClientPortalPage({ params }: Props) {
+export default async function ClientPortalPage({ params, searchParams }: Props) {
   const { token } = await params;
+  const query = await searchParams;
 
   const portal = await getClientPortal(token);
 
   if (!portal) {
     notFound();
+  }
+
+  if (!portal.verified) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6 py-12">
+        <section className="w-full max-w-md rounded-2xl border bg-white p-8 shadow-sm">
+          <p className="text-sm font-medium text-gray-500">ClientFlow secure portal</p>
+          <h1 className="mt-2 text-2xl font-bold text-gray-900">Verify your email</h1>
+          <p className="mt-3 text-sm leading-6 text-gray-600">
+            To protect your project information, verify that you can access {portal.emailHint} before viewing or submitting onboarding details.
+          </p>
+          {query.sent === "1" && (
+            <p className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-800">
+              If this portal is valid, a verification code has been sent to the registered client email. Check your inbox.
+            </p>
+          )}
+          {query.error === "code" && (
+            <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+              That code is invalid or expired. Request a new code and try again.
+            </p>
+          )}
+          {query.error === "email" && (
+            <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+              We could not send the verification email. Please try again later or contact the agency.
+            </p>
+          )}
+          <form action={requestPortalVerificationAction} className="mt-5">
+            <input type="hidden" name="token" value={token} />
+            <button type="submit" className="w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white hover:bg-gray-800">
+              Email me a verification code
+            </button>
+          </form>
+          <form action={verifyPortalCodeAction} className="mt-4 space-y-3">
+            <input type="hidden" name="token" value={token} />
+            <label htmlFor="code" className="block text-sm font-medium text-gray-700">6-digit verification code</label>
+            <input id="code" name="code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm tracking-[0.3em] outline-none focus:border-gray-400" />
+            <button type="submit" className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-800 hover:bg-gray-50">
+              Verify and open portal
+            </button>
+          </form>
+        </section>
+      </main>
+    );
   }
 
   return (

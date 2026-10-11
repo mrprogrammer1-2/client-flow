@@ -460,6 +460,27 @@ export const clientPortalAccess = pgTable("client_portal_access", {
     .notNull(),
 });
 
+// Short-lived email verification codes for client portal access. Only a hash of
+// each code is stored; a portal link alone must never reveal onboarding data.
+export const clientPortalVerifications = pgTable(
+  "client_portal_verifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    portalAccessId: uuid("portal_access_id")
+      .notNull()
+      .unique()
+      .references(() => clientPortalAccess.id, { onDelete: "cascade" }),
+    codeHash: text("code_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    lastSentAt: timestamp("last_sent_at", { withTimezone: true }).notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+);
+
 // Relations
 
 export const agenciesRelations = relations(agencies, ({ many }) => ({
