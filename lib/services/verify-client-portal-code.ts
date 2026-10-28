@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHash, timingSafeEqual } from "crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, lt, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { clientPortalAccess, clientPortalVerifications } from "@/db/schema";
@@ -66,32 +66,61 @@ export async function verifyClientPortalCode(
     };
   }
 
-  if (verification.attempts >= MAX_ATTEMPTS) {
+  if (!/^\d{6}$/.test(submittedCode)) {
+    return {
+      success: false as const,
+      error: "Enter the six-digit code.",
+    };
+  }
+
+  // Atomically consume one attempt only if the limit has not been reached.
+  const [attempt] = await db
+    .update(clientPortalVerifications)
+    .set({
+      attempts: sql`${clientPortalVerifications.attempts} + 1`,
+    })
+    .where(
+      and(
+        eq(clientPortalVerifications.id, verification.id),
+        lt(clientPortalVerifications.attempts, MAX_ATTEMPTS),
+        eq(clientPortalVerifications.codeHash, verification.codeHash),
+      ),
+    )
+    .returning({ id: clientPortalVerifications.id });
+
+  if (!attempt) {
     return {
       success: false as const,
       error: "Too many attempts. Request a new code.",
     };
   }
 
-  if (!/^\d{6}$/.test(submittedCode)) {
-    return { success: false as const, error: "Enter the six-digit code." };
-  }
-
   const submittedHash = hashCode(submittedCode);
 
   if (!hashesMatch(submittedHash, verification.codeHash)) {
-    await db
-      .update(clientPortalVerifications)
-      .set({ attempts: verification.attempts + 1 })
-      .where(eq(clientPortalVerifications.id, verification.id));
-
-    return { success: false as const, error: "Incorrect code." };
+    return {
+      success: false as const,
+      error: "Incorrect code.",
+    };
   }
 
-  // Consume the code so it cannot be used to create another session.
-  await db
+  // Consume the code atomically so only one concurrent request can use it.
+  const [consumedVerification] = await db
     .delete(clientPortalVerifications)
-    .where(eq(clientPortalVerifications.id, verification.id));
+    .where(
+      and(
+        eq(clientPortalVerifications.id, verification.id),
+        eq(clientPortalVerifications.codeHash, verification.codeHash),
+      ),
+    )
+    .returning({ id: clientPortalVerifications.id });
+
+  if (!consumedVerification) {
+    return {
+      success: false as const,
+      error: "This code has already been used. Request a new one.",
+    };
+  }
 
   await createClientPortalSession(portalAccess.id);
 

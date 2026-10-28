@@ -90,7 +90,6 @@ export async function sendClientPortalVerification(token: string) {
       .set({
         codeHash,
         expiresAt,
-        attempts: 0,
         lastSentAt: now,
       })
       .where(eq(clientPortalVerifications.id, existingVerification.id));
