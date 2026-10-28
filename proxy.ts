@@ -2,7 +2,7 @@ import { withAuth } from "@kinde-oss/kinde-auth-nextjs/middleware";
 
 export default withAuth(async function proxy() {}, {
   isReturnToCurrentPage: true,
-  publicPaths: ["/", "/login", "/api/auth(.*)", "/client-portal(.*)"],
+  publicPaths: ["/", "/login", "/client-portal", "/client-portal/:token"],
 });
 
 export const config = {

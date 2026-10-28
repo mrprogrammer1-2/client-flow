@@ -1,3 +1,4 @@
+import "server-only";
 import { db } from "@/db";
 import {
   clientPortalAccess,
@@ -12,7 +13,7 @@ import { eq, and } from "drizzle-orm";
 import { uploadToCloudinary } from "./upload-to-cloudinary";
 import { deleteFromCloudinary } from "./delete-from-cloudinary";
 import calculateOnboardingStatus from "./calculate-onboarding-status";
-import { isClientPortalSessionVerified } from "./client-portal-verification";
+import { hasValidClientPortalSession } from "@/lib/services/client-portal-session";
 
 type SubmitClientResponseInput = {
   token: string;
@@ -32,12 +33,6 @@ export async function submitClientResponse({
   file,
   answers,
 }: SubmitClientResponseInput) {
-  // The raw portal URL is not sufficient authorization: the intended client
-  // must first verify the registered email and receive a signed HttpOnly cookie.
-  if (!(await isClientPortalSessionVerified(token))) {
-    throw new Error("Email verification is required before submitting a response.");
-  }
-
   const tokenHash = createHash("sha256").update(token).digest("hex");
 
   const [portalAccess] = await db
@@ -56,6 +51,12 @@ export async function submitClientResponse({
 
   if (portalAccess.expiresAt && portalAccess.expiresAt < new Date()) {
     throw new Error("Token has expired");
+  }
+
+  const isVerified = await hasValidClientPortalSession(portalAccess.id);
+
+  if (!isVerified) {
+    throw new Error("Email verification required.");
   }
 
   const [step] = await db

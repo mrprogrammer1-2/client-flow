@@ -2,14 +2,12 @@
 
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { ensureUserAndAgency } from "./ensure-user";
-import { redirect } from "next/navigation";
 
 export async function getAuthenticatedKindeUser() {
   const { getUser } = getKindeServerSession();
   const kindeUser = await getUser();
   if (!kindeUser) {
-    // Keep the server-side guard authoritative even if middleware is misconfigured.
-    redirect("/api/auth/login");
+    throw new Error("User not found");
   }
 
   return kindeUser;

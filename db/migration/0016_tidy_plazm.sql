@@ -1,0 +1,1 @@
+ALTER TABLE "client_portal_verifications" ADD CONSTRAINT "client_portal_verifications_client_portal_access_id_unique" UNIQUE("client_portal_access_id");

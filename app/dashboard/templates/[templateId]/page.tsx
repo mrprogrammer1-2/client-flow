@@ -1,6 +1,7 @@
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { db } from "@/db";
 import {
@@ -8,7 +9,7 @@ import {
   onboardingTemplateSteps,
   onboardingTemplates,
 } from "@/db/schema";
-import { requireCurrentUser } from "@/lib/services/current-user";
+import { ensureUserAndAgency } from "@/lib/services/ensure-user";
 import {
   archiveTemplateAction,
   createTemplateQuestionAction,
@@ -34,7 +35,22 @@ export default async function TemplateDetailsPage({
 }: TemplateDetailsPageProps) {
   const { templateId } = await params;
 
-  const user = await requireCurrentUser();
+  const { getUser } = getKindeServerSession();
+  const kindeUser = await getUser();
+
+  if (!kindeUser) {
+    redirect("/");
+  }
+
+  const user = await ensureUserAndAgency({
+    id: kindeUser.id,
+    email: kindeUser.email,
+    given_name: kindeUser.given_name,
+  });
+
+  if (!user) {
+    throw new Error("Could not find the current user.");
+  }
 
   const [template] = await db
     .select()

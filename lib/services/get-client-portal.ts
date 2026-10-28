@@ -1,28 +1,41 @@
 import { db } from "@/db";
 import {
+  clientPortalAccess,
   clients,
   projectOnboardings,
   projectOnboardingQuestions,
   projectOnboardingSteps,
   projects,
 } from "@/db/schema";
+import { createHash } from "crypto";
 import { eq, asc, inArray } from "drizzle-orm";
-import {
-  getClientPortalAccessContext,
-  isClientPortalSessionVerified,
-  maskEmail,
-} from "./client-portal-verification";
+import { hasValidClientPortalSession } from "@/lib/services/client-portal-session";
 
 export async function getClientPortal(token: string) {
-  const context = await getClientPortalAccessContext(token);
-  if (!context) return null;
+  const tokenHash = createHash("sha256").update(token).digest("hex");
 
-  const verified = await isClientPortalSessionVerified(token);
-  if (!verified) {
-    return {
-      verified: false as const,
-      emailHint: maskEmail(context.clientEmail),
-    };
+  const [portalAccess] = await db
+    .select()
+    .from(clientPortalAccess)
+    .where(eq(clientPortalAccess.tokenHash, tokenHash))
+    .limit(1);
+
+  if (!portalAccess) {
+    return null;
+  }
+
+  if (portalAccess.revokedAt) {
+    return null;
+  }
+
+  if (portalAccess.expiresAt && portalAccess.expiresAt < new Date()) {
+    return null;
+  }
+
+  const isVerified = await hasValidClientPortalSession(portalAccess.id);
+
+  if (!isVerified) {
+    return null;
   }
 
   const rows = await db
@@ -46,7 +59,7 @@ export async function getClientPortal(token: string) {
       projectOnboardingSteps,
       eq(projectOnboardingSteps.projectOnboardingId, projectOnboardings.id),
     )
-    .where(eq(projectOnboardings.id, context.projectOnboardingId))
+    .where(eq(projectOnboardings.id, portalAccess.projectOnboardingId))
     .orderBy(asc(projectOnboardingSteps.position));
 
   if (!rows.length) {
@@ -94,7 +107,6 @@ export async function getClientPortal(token: string) {
     totalSteps === 0 ? 0 : Math.round((completedSteps / totalSteps) * 100);
 
   return {
-    verified: true as const,
     project: {
       name: projectRow.projectName,
       description: projectRow.projectDescription,
